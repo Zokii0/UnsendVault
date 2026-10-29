@@ -1,0 +1,362 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "a40deefc070d2c6bf88da12089177d0b",
+    "entities": [
+      {
+        "tableName": "conversations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `package_name` TEXT NOT NULL, `app_label` TEXT NOT NULL, `conversation_key` TEXT NOT NULL, `title` TEXT NOT NULL, `is_group` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `last_message_at` INTEGER NOT NULL, `last_message_preview` TEXT, `message_count` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "package_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "appLabel",
+            "columnName": "app_label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "conversationKey",
+            "columnName": "conversation_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isGroup",
+            "columnName": "is_group",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastMessageAt",
+            "columnName": "last_message_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastMessagePreview",
+            "columnName": "last_message_preview",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "messageCount",
+            "columnName": "message_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_conversations_package_name_conversation_key",
+            "unique": true,
+            "columnNames": [
+              "package_name",
+              "conversation_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_conversations_package_name_conversation_key` ON `${TABLE_NAME}` (`package_name`, `conversation_key`)"
+          },
+          {
+            "name": "index_conversations_last_message_at",
+            "unique": false,
+            "columnNames": [
+              "last_message_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_conversations_last_message_at` ON `${TABLE_NAME}` (`last_message_at`)"
+          }
+        ]
+      },
+      {
+        "tableName": "messages",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `conversation_id` INTEGER NOT NULL, `package_name` TEXT NOT NULL, `sender` TEXT, `sender_key` TEXT NOT NULL, `text` TEXT NOT NULL, `normalized_text` TEXT NOT NULL, `content_kind` TEXT NOT NULL, `message_timestamp` INTEGER NOT NULL, `has_precise_timestamp` INTEGER NOT NULL, `first_captured_at` INTEGER NOT NULL, `last_updated_at` INTEGER NOT NULL, `is_favorite` INTEGER NOT NULL, `status` TEXT NOT NULL, `deletion_adapter_id` TEXT, `deletion_marker_text` TEXT, `deletion_observed_at` INTEGER, `revision_count` INTEGER NOT NULL, FOREIGN KEY(`conversation_id`) REFERENCES `conversations`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "conversationId",
+            "columnName": "conversation_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "package_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sender",
+            "columnName": "sender",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "senderKey",
+            "columnName": "sender_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "normalizedText",
+            "columnName": "normalized_text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentKind",
+            "columnName": "content_kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageTimestamp",
+            "columnName": "message_timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasPreciseTimestamp",
+            "columnName": "has_precise_timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstCapturedAt",
+            "columnName": "first_captured_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUpdatedAt",
+            "columnName": "last_updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isFavorite",
+            "columnName": "is_favorite",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletionAdapterId",
+            "columnName": "deletion_adapter_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "deletionMarkerText",
+            "columnName": "deletion_marker_text",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "deletionObservedAt",
+            "columnName": "deletion_observed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "revisionCount",
+            "columnName": "revision_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_messages_conversation_id_message_timestamp",
+            "unique": false,
+            "columnNames": [
+              "conversation_id",
+              "message_timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_messages_conversation_id_message_timestamp` ON `${TABLE_NAME}` (`conversation_id`, `message_timestamp`)"
+          },
+          {
+            "name": "index_messages_package_name_message_timestamp",
+            "unique": false,
+            "columnNames": [
+              "package_name",
+              "message_timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_messages_package_name_message_timestamp` ON `${TABLE_NAME}` (`package_name`, `message_timestamp`)"
+          },
+          {
+            "name": "index_messages_is_favorite",
+            "unique": false,
+            "columnNames": [
+              "is_favorite"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_messages_is_favorite` ON `${TABLE_NAME}` (`is_favorite`)"
+          },
+          {
+            "name": "index_messages_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_messages_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_messages_conversation_id_sender_key_message_timestamp",
+            "unique": false,
+            "columnNames": [
+              "conversation_id",
+              "sender_key",
+              "message_timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_messages_conversation_id_sender_key_message_timestamp` ON `${TABLE_NAME}` (`conversation_id`, `sender_key`, `message_timestamp`)"
+          },
+          {
+            "name": "index_messages_conversation_id_sender_key_normalized_text",
+            "unique": false,
+            "columnNames": [
+              "conversation_id",
+              "sender_key",
+              "normalized_text"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_messages_conversation_id_sender_key_normalized_text` ON `${TABLE_NAME}` (`conversation_id`, `sender_key`, `normalized_text`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "conversations",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "conversation_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "message_revisions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `message_id` INTEGER NOT NULL, `text` TEXT NOT NULL, `content_kind` TEXT NOT NULL, `captured_at` INTEGER NOT NULL, FOREIGN KEY(`message_id`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageId",
+            "columnName": "message_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentKind",
+            "columnName": "content_kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "capturedAt",
+            "columnName": "captured_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_message_revisions_message_id",
+            "unique": false,
+            "columnNames": [
+              "message_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_message_revisions_message_id` ON `${TABLE_NAME}` (`message_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "messages",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "message_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a40deefc070d2c6bf88da12089177d0b')"
+    ]
+  }
+}
