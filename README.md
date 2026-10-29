@@ -86,6 +86,12 @@ sha256sum --check UnsendVault-1.0.57.apk.sha256           # UnsendVault-1.0.57.a
 apksigner verify --print-certs UnsendVault-1.0.57.apk     # compare "certificate SHA-256 digest" with the release notes
 ```
 
+Official signing certificate (SHA-256):
+
+```
+e4:43:c8:69:aa:cc:20:5d:6c:41:c9:17:f9:4a:6a:83:be:4c:00:53:c2:4b:0d:24:6c:c7:74:ff:75:13:51:97
+```
+
 `apksigner` is part of the Android SDK build-tools. The signing certificate is the same for every release; if a
 release ever shows a different one, do not install it and open an issue. Details: [docs/RELEASING.md](docs/RELEASING.md#how-users-verify-a-download).
 

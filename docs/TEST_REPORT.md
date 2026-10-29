@@ -87,6 +87,15 @@ observed when no widget is placed.
 | Secure screen toggle | Turn off for screenshots, back on | Screenshots possible only while off; after re-enabling, capture is fully black again. Pass |
 | Release build (R8) smoke test | `assembleRelease`, signed locally with a throwaway debug key, installed side by side | Permissions: no INTERNET. Cold start 239 ms. Onboarding, capture, SQLCipher DB, export, and import of the debug build's backup (18 messages merged) all worked with no crash or serialization error. Uninstalled afterwards so it cannot block the real signed release |
 
+## CI and signed release
+
+| Check | Result |
+|---|---|
+| GitHub Actions "CI and Release" run [40920946782](https://github.com/riyadmondol2006/UnsendVault/actions/runs/40920946782) on commit `0d3c735` | Build, test and lint: success. Sign and publish the release: success (the emulator job runs only on schedule/manual dispatch and was skipped) |
+| Release [v1.0.15](https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1.0.15) | Assets: `UnsendVault-1.0.15.apk`, `.apk.sha256`, `SHA256SUMS.txt`, `mapping-1.0.15.zip` |
+| Independent check of the downloaded APK | `sha256sum -c` OK; `apksigner verify`: v2 + v3 verified, 1 signer, certificate `CN=Riyad M, OU=riyadmondol2006, C=BD`, SHA-256 `e443c869aacc205d6c41c917f94a6a83be4c0053c24b0d246cc774ff75135197`; versionCode 15 / versionName 1.0.15; permissions: no INTERNET |
+| Official APK on the Pixel 6 | Installed, cold start 308 ms, onboarding, capture of a synthetic MessagingStyle message: pass |
+
 ### Android 17 observations (this device and build only)
 
 - The framework overlay `com.google.android.overlay.messagingreadrestrictionallowlist` sets
@@ -112,4 +121,3 @@ observed when no widget is placed.
 - Large font scale, RTL and TalkBack walkthroughs on the device.
 - Retention actually deleting old messages on the device (all data was newer than the 30-day cutoff); covered by
   unit tests.
-- The signed release from CI: see the GitHub Actions run and release page for that build.
