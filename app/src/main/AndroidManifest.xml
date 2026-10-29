@@ -8,6 +8,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
 
+    <!-- UI: lists launchable apps (labels/icons) in the per-app exclusion picker. Launcher intent only, never
+         QUERY_ALL_PACKAGES. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".UnsendVaultApp"
         android:allowBackup="false"
