@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UI layer strings (screens, app lock). Copy rule: never promise more than Android actually exposes. -->
+<resources>
+    <!-- Navigation -->
+    <string name="nav_archive">Archive</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_favorites">Favorites</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Common actions -->
+    <string name="action_apply">Apply</string>
+    <string name="action_back">Back</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_clear_search">Clear search</string>
+    <string name="action_clear_selection">Clear selection</string>
+    <string name="action_close">Close</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_copy">Copy text</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_delete_conversation">Delete conversation</string>
+    <string name="action_delete_everything">Delete everything</string>
+    <string name="action_delete_selected">Delete selected messages</string>
+    <string name="action_grant_notification_access">Grant notification access</string>
+    <string name="action_keep">Keep</string>
+    <string name="action_lock_now">Lock now</string>
+    <string name="action_not_now">Not now</string>
+    <string name="action_ok">OK</string>
+    <string name="action_reconnect">Reconnect</string>
+    <string name="action_reliability_help">Reliability help</string>
+    <string name="action_remove_favorite">Remove from favorites</string>
+    <string name="action_resume_capture">Resume capture</string>
+    <string name="action_select">Select</string>
+    <string name="action_select_all">Select all</string>
+    <string name="action_share">Share text</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_back">Navigate back</string>
+    <string name="cd_favorite">Favorite</string>
+    <string name="cd_group_conversation">Group conversation</string>
+    <string name="cd_more_options">More options</string>
+
+    <!-- Badges and content kinds -->
+    <string name="badge_possibly_deleted">Possibly deleted</string>
+    <string name="badge_media">Media not saved</string>
+    <string name="badge_hidden_by_android">Hidden by Android</string>
+    <string name="badge_filtered">Hidden by filter</string>
+    <plurals name="badge_versions">
+        <item quantity="one">%d version</item>
+        <item quantity="other">%d versions</item>
+    </plurals>
+    <string name="kind_media_short">Media message (not saved)</string>
+    <string name="kind_redacted_short">Content hidden by Android</string>
+    <string name="kind_filtered_short">Hidden by your sensitive-content filter</string>
+    <string name="kind_media_title">Media placeholder</string>
+    <string name="kind_media_body">The app only showed a placeholder for a photo, video, voice note, sticker or file. UnsendVault saves text previews only; media is never downloaded or stored.</string>
+    <string name="kind_redacted_title">Hidden by Android</string>
+    <string name="kind_redacted_body">Android withheld this content from UnsendVault. Android 15 and later hide one-time codes and other sensitive notification content from notification listeners that are not trusted by the system, and Android 17 can withhold message content from listeners that are not on the system allowlist. UnsendVault cannot see or recover what Android hides.</string>
+    <string name="kind_filtered_title">Hidden by your sensitive-content filter</string>
+    <string name="kind_filtered_body">UnsendVault replaced this text before saving it because it looked like a one-time code or other sensitive data (card number, IBAN, password). The original text was never stored. You can change this in Settings → Privacy.</string>
+
+    <!-- Stats -->
+    <plurals name="stats_messages">
+        <item quantity="one">%d message</item>
+        <item quantity="other">%d messages</item>
+    </plurals>
+    <plurals name="stats_conversations">
+        <item quantity="one">%d conversation</item>
+        <item quantity="other">%d conversations</item>
+    </plurals>
+    <plurals name="stats_apps">
+        <item quantity="one">%d app</item>
+        <item quantity="other">%d apps</item>
+    </plurals>
+
+    <!-- App lock -->
+    <string name="lock_title">UnsendVault is locked</string>
+    <string name="lock_body">Your archive stays hidden until you confirm it\'s you.</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_prompt_title">Unlock UnsendVault</string>
+    <string name="lock_prompt_subtitle">Use your fingerprint, face, PIN, pattern or password</string>
+    <string name="lock_error_title">Couldn\'t verify</string>
+    <string name="lock_error_generic">Verification failed. Try again.</string>
+    <string name="lock_no_credential_title">Set up a screen lock first</string>
+    <string name="lock_no_credential_body">This device no longer has a screen lock (PIN, pattern or password), so UnsendVault has nothing to verify you with. Set up a screen lock to keep using app lock, or turn app lock off.</string>
+    <string name="lock_no_credential_enable_body">App lock uses your device\'s screen lock (PIN, pattern or password, plus fingerprint or face if enrolled). This device has no screen lock yet.</string>
+    <string name="lock_open_security_settings">Open security settings</string>
+    <string name="lock_turn_off_and_continue">Turn off app lock and continue</string>
+    <string name="lock_check_again">I\'ve set a screen lock</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_progress">Step %1$d of %2$d</string>
+    <string name="onboarding_welcome_title">Keep a private copy of message previews</string>
+    <string name="onboarding_welcome_body">UnsendVault saves the message text that Android shows in your notifications, so you can read it later, even if the sender deletes or unsends the message.</string>
+    <string-array name="onboarding_welcome_points">
+        <item>Works with chat apps like WhatsApp, Telegram, Messenger and Instagram, through their notifications.</item>
+        <item>Shows edits as update history and clearly marks messages the app itself reported as deleted.</item>
+        <item>Search, favorites, per-app filters and auto-delete.</item>
+    </string-array>
+    <string name="onboarding_limits_title">What it can and can\'t do</string>
+    <string name="onboarding_limits_body">UnsendVault doesn\'t connect to any chat service and can\'t recover anything from servers. It only sees what Android shows in notifications.</string>
+    <string-array name="onboarding_limits_points">
+        <item>Nothing is saved before you grant notification access, or while capture is paused.</item>
+        <item>Muted chats, hidden or disabled previews, and chats you\'re looking at while the message arrives don\'t produce a notification, so they aren\'t saved.</item>
+        <item>Photos, videos, voice notes and files are never saved; only the text placeholder is.</item>
+        <item>Android may withhold content: Android 15+ hides one-time codes from untrusted listeners, and Android 17 can withhold message text.</item>
+        <item>Long messages may be cut short by the notification itself.</item>
+    </string-array>
+    <string name="onboarding_privacy_title">Private by design</string>
+    <string name="onboarding_privacy_body">Your archive never leaves this device unless you export it yourself.</string>
+    <string-array name="onboarding_privacy_points">
+        <item>Fully offline: the app has no internet permission at all.</item>
+        <item>The archive is stored in an encrypted database whose key is protected by the Android Keystore.</item>
+        <item>One-time codes and other sensitive text are filtered out before saving (you can change this).</item>
+        <item>Exclude apps, auto-delete old messages, or delete everything at any time.</item>
+    </string-array>
+    <string name="onboarding_access_title">Allow notification access</string>
+    <string name="onboarding_access_body">Android will open its Notification access screen. Turn on UnsendVault there, then come back.</string>
+    <string-array name="onboarding_access_points">
+        <item>Android will warn that the app can read all notifications. That is how UnsendVault works; it ignores apps that don\'t look like messaging and any app you exclude.</item>
+        <item>You can turn access off at any time in system settings.</item>
+    </string-array>
+    <string name="onboarding_access_granted">Notification access is on. Capture is ready.</string>
+    <string name="onboarding_access_not_granted">Notification access is off. Nothing will be saved yet.</string>
+    <string name="onboarding_access_review">Open notification access settings</string>
+    <string name="onboarding_skip_for_now">Skip for now</string>
+    <string name="onboarding_lock_title">Optional: lock the app</string>
+    <string name="onboarding_lock_body">Require your fingerprint, face or screen lock to open UnsendVault. Recommended if other people use this phone.</string>
+    <string name="onboarding_lock_later">You can change this later in Settings → Security.</string>
+    <string name="onboarding_finish">Start using UnsendVault</string>
+
+    <!-- Home -->
+    <string name="home_title">UnsendVault</string>
+    <string name="home_tab_recent">Recent</string>
+    <string name="home_tab_conversations">Chats</string>
+    <string name="home_tab_apps">Apps</string>
+    <string name="filter_all_apps">All apps</string>
+    <string name="home_empty_title">No messages yet</string>
+    <string name="home_empty_body">New message previews appear here as notifications arrive. Messages received before capture was active can\'t be added.</string>
+    <string name="home_empty_no_access_title">Nothing saved yet</string>
+    <string name="home_empty_no_access_body">Grant notification access to start saving message previews from now on.</string>
+    <string name="home_empty_filtered_title">Nothing from these apps</string>
+    <string name="home_empty_filtered_body">Try selecting other apps or clear the filter.</string>
+    <string name="home_pick_conversation_title">Pick a conversation</string>
+    <string name="home_pick_conversation_body">Select a chat on the left to read it here.</string>
+
+    <!-- Capture status card -->
+    <string name="status_no_access_title">Capture is off: no notification access</string>
+    <string name="status_no_access_body">UnsendVault can only save message previews after you allow notification access.</string>
+    <string name="status_paused_title">Capture is paused</string>
+    <string name="status_paused_body">New notifications are ignored until you resume. Notification access is still granted.</string>
+    <string name="status_disconnected_title">Capture is not connected</string>
+    <string name="status_disconnected_body">Access is granted, but Android hasn\'t connected UnsendVault\'s notification listener. This can happen after an update or when the system stops background apps.</string>
+    <string name="status_active_title">Capture is active</string>
+    <string name="status_active_body">Saving message previews that Android shows in notifications.</string>
+
+    <!-- Conversation -->
+    <string name="conversation_empty_title">No messages left</string>
+    <string name="conversation_empty_body">All messages of this conversation were deleted from your archive.</string>
+    <plurals name="selected_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="messages_deleted">
+        <item quantity="one">%d message deleted</item>
+        <item quantity="other">%d messages deleted</item>
+    </plurals>
+    <plurals name="delete_messages_title">
+        <item quantity="one">Delete %d message?</item>
+        <item quantity="other">Delete %d messages?</item>
+    </plurals>
+    <string name="delete_message_title">Delete this message?</string>
+    <string name="delete_messages_body">This removes it from your UnsendVault archive only. It does not affect the chat app.</string>
+    <string name="delete_conversation_title">Delete conversation?</string>
+    <string name="delete_conversation_body">All archived messages from “%1$s” will be removed from UnsendVault. The chat app is not affected.</string>
+
+    <!-- Message detail -->
+    <string name="detail_title">Message</string>
+    <string name="detail_in_conversation">in %1$s · %2$s</string>
+    <string name="detail_possibly_deleted_title">Possibly deleted or unsent</string>
+    <string name="detail_evidence">%1$s showed “%2$s” for this message at %3$s.</string>
+    <string name="detail_evidence_missing">%1$s reported this message as deleted, but no details were stored.</string>
+    <string name="detail_evidence_explainer">UnsendVault marks a message this way only when the app itself displays a deletion notice for it. It can\'t check with the app\'s servers, so treat this as a strong hint, not proof.</string>
+    <string name="detail_section_details">Details</string>
+    <string name="detail_message_time">Message time (from the app)</string>
+    <string name="detail_captured_at">First saved by UnsendVault</string>
+    <string name="detail_last_updated">Last updated</string>
+    <string name="detail_conversation">Conversation</string>
+    <string name="detail_app">App</string>
+    <string name="detail_times_explainer">Message time is the timestamp the app attached to the notification; saved time is when UnsendVault received it. They can differ if the notification was delayed.</string>
+    <string name="detail_removal_title">Notification removed</string>
+    <string name="detail_removal_not_deletion">This does not mean the message was deleted. Apps routinely clear notifications, for example when you read the chat on another device.</string>
+    <string name="detail_unknown_time">an unknown time</string>
+    <string name="removal_app_cancelled">Notification dismissed by %1$s at %2$s.</string>
+    <string name="removal_user_dismissed">You dismissed the notification at %1$s.</string>
+    <string name="removal_clicked">You opened the notification at %1$s.</string>
+    <string name="removal_timeout">The notification expired at %1$s.</string>
+    <string name="removal_other">The notification was removed at %1$s.</string>
+    <string name="detail_history_title">Update history</string>
+    <string name="detail_history_explainer">The app updated this notification with different text. Earlier versions are kept here.</string>
+    <string name="detail_history_current">Current</string>
+    <string name="detail_history_earlier">Earlier version</string>
+    <string name="detail_preview_note">Saved from the notification preview. The original chat may contain more than the notification showed.</string>
+    <string name="detail_missing_title">Message not found</string>
+    <string name="detail_missing_body">This message is no longer in your archive.</string>
+    <string name="detail_copied">Copied</string>
+    <string name="detail_clip_label">Archived message</string>
+    <string name="detail_share_title">Share message text</string>
+
+    <!-- Search -->
+    <string name="search_title">Search</string>
+    <string name="search_hint">Search messages, people, chats</string>
+    <string name="search_filter_conversation">Conversation</string>
+    <string name="search_any_conversation">Any conversation</string>
+    <string name="search_filter_dates">Dates</string>
+    <string name="search_filter_favorites">Favorites</string>
+    <string name="search_filter_possibly_deleted">Possibly deleted</string>
+    <string name="search_clear_filters">Clear filters</string>
+    <string name="search_start_title">Search your archive</string>
+    <string name="search_start_body">Search message text, senders and conversation names, or use the filters. Searching happens on this device only.</string>
+    <string name="search_no_results_title">No matches</string>
+    <string name="search_no_results_body">Try fewer words or remove a filter.</string>
+    <plurals name="search_result_count">
+        <item quantity="one">%d result</item>
+        <item quantity="other">%d results</item>
+    </plurals>
+
+    <!-- Favorites -->
+    <string name="favorites_title">Favorites</string>
+    <string name="favorites_empty_title">No favorites yet</string>
+    <string name="favorites_empty_body">Open a message and tap the star to keep it here. Favorites are never removed by auto-delete.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_capture">Capture</string>
+    <string name="settings_section_retention">Storage</string>
+    <string name="settings_section_privacy">Privacy</string>
+    <string name="settings_section_security">Security</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_backup">Backup</string>
+    <string name="settings_section_data">Data</string>
+    <string name="settings_section_help">Help</string>
+    <string name="settings_section_developer">Developer (debug builds only)</string>
+    <string name="settings_capture_enabled">Capture new messages</string>
+    <string name="settings_capture_enabled_on">On. Turn off to pause saving without revoking access.</string>
+    <string name="settings_capture_enabled_off">Paused. New notifications are ignored.</string>
+    <string name="settings_messages_only">Messages only</string>
+    <string name="settings_messages_only_summary">Only save notifications that look like chat messages. Turn off to also keep text from other apps\' notifications.</string>
+    <string name="settings_excluded_apps">Excluded apps</string>
+    <string name="settings_excluded_none">No apps excluded</string>
+    <plurals name="settings_excluded_count">
+        <item quantity="one">%d app excluded</item>
+        <item quantity="other">%d apps excluded</item>
+    </plurals>
+    <string name="settings_notification_access">Notification access</string>
+    <string name="settings_notification_access_summary">Review or revoke access in system settings</string>
+    <string name="settings_retention">Auto-delete</string>
+    <string name="retention_off">Off (keep messages until you delete them)</string>
+    <plurals name="retention_days">
+        <item quantity="one">Delete messages older than %d day</item>
+        <item quantity="other">Delete messages older than %d days</item>
+    </plurals>
+    <string name="settings_retention_favorites_note">Favorites are never auto-deleted.</string>
+    <string name="settings_run_cleanup">Run cleanup now</string>
+    <string name="settings_run_cleanup_summary">Apply the auto-delete rule immediately</string>
+    <plurals name="cleanup_finished">
+        <item quantity="one">Cleanup removed %d message</item>
+        <item quantity="other">Cleanup removed %d messages</item>
+    </plurals>
+    <string name="settings_filter_otp">Hide one-time codes</string>
+    <string name="settings_filter_otp_summary">Replace verification codes and OTPs with a placeholder before saving</string>
+    <string name="settings_filter_sensitive">Hide other sensitive data</string>
+    <string name="settings_filter_sensitive_summary">Replace card numbers, IBANs and passwords with a placeholder before saving</string>
+    <string name="settings_secure_screen">Secure screen</string>
+    <string name="settings_secure_screen_summary">Block screenshots and screen recording, and hide the app in Recents</string>
+    <string name="settings_widget_content">Show message text in widgets</string>
+    <string name="settings_widget_content_summary">When off, widgets only show counts</string>
+    <string name="settings_widget_content_locked">Unavailable while app lock is on: widgets only show counts so locked content can\'t appear on the home screen</string>
+    <string name="settings_app_lock">App lock</string>
+    <string name="settings_app_lock_summary">Require fingerprint, face or screen lock to open UnsendVault</string>
+    <string name="settings_lock_timeout">Lock after leaving the app</string>
+    <string name="timeout_immediately">Immediately</string>
+    <plurals name="timeout_seconds">
+        <item quantity="one">After %d second</item>
+        <item quantity="other">After %d seconds</item>
+    </plurals>
+    <plurals name="timeout_minutes">
+        <item quantity="one">After %d minute</item>
+        <item quantity="other">After %d minutes</item>
+    </plurals>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_amoled">Pure black dark theme</string>
+    <string name="settings_amoled_summary">Uses true black backgrounds in dark theme (saves power on OLED screens)</string>
+    <string name="settings_dynamic_color">Dynamic color</string>
+    <string name="settings_dynamic_color_summary">Use colors from your wallpaper</string>
+    <string name="settings_dynamic_color_unsupported">Requires Android 12 or later</string>
+    <string name="settings_delete_all">Delete all archived messages</string>
+    <string name="settings_delete_all_summary">Permanently removes every message and conversation. Settings are kept.</string>
+    <string name="settings_delete_all_confirm_title">Delete your whole archive?</string>
+    <string name="settings_delete_all_confirm_body">Every saved message, conversation and favorite will be permanently deleted from this device. This can\'t be undone. Export a backup first if you might need them.</string>
+    <string name="settings_all_deleted">Archive deleted</string>
+    <string name="settings_demo_data">Insert synthetic demo data</string>
+    <string name="settings_demo_data_summary">Adds fictional conversations covering every message state</string>
+    <plurals name="demo_inserted">
+        <item quantity="one">Inserted %d demo message</item>
+        <item quantity="other">Inserted %d demo messages</item>
+    </plurals>
+
+    <!-- Exclusions -->
+    <string name="exclusions_explainer">Notifications from excluded apps are dropped before they are read. Apps you\'ve received messages from are listed first.</string>
+    <string name="exclusions_filter_hint">Find an app</string>
+    <string name="exclusions_state_excluded">Excluded</string>
+    <string name="exclusions_state_captured">Captured</string>
+    <string name="exclusions_delete_title">Also delete messages from %1$s?</string>
+    <plurals name="exclusions_delete_body">
+        <item quantity="one">Your archive has %1$d message from %2$s. Delete it too, or keep it?</item>
+        <item quantity="other">Your archive has %1$d messages from %2$s. Delete them too, or keep them?</item>
+    </plurals>
+    <string name="exclusions_data_deleted">Deleted archived messages from %1$s</string>
+
+    <!-- Backup -->
+    <string name="backup_export">Export encrypted backup</string>
+    <string name="backup_import">Import backup</string>
+    <string name="backup_import_summary">Restore from a backup file</string>
+    <string name="backup_last_export">Last export: %1$s</string>
+    <string name="backup_never_exported">Never exported</string>
+    <string name="backup_reminder">Backup reminder</string>
+    <string name="reminder_off">Off</string>
+    <plurals name="reminder_days">
+        <item quantity="one">Remind me after %d day without a backup</item>
+        <item quantity="other">Remind me after %d days without a backup</item>
+    </plurals>
+    <string name="backup_explainer">Android cloud backup is turned off for UnsendVault because the archive key never leaves this device. An encrypted export is the only way to move or keep your archive.</string>
+    <string name="backup_export_dialog_title">Protect your backup</string>
+    <string name="backup_export_dialog_body">Choose a password for this backup file. You\'ll need it to import the backup; it can\'t be recovered if you forget it.</string>
+    <string name="backup_password">Password</string>
+    <string name="backup_password_confirm">Confirm password</string>
+    <string name="backup_choose_location">Choose location</string>
+    <plurals name="password_too_short">
+        <item quantity="one">Use at least %d character.</item>
+        <item quantity="other">Use at least %d characters.</item>
+    </plurals>
+    <string name="password_mismatch">Passwords don\'t match.</string>
+    <string name="password_strength_weak">Strength: weak. Longer passphrases are much harder to guess.</string>
+    <string name="password_strength_fair">Strength: fair. Adding length makes it stronger.</string>
+    <string name="password_strength_strong">Strength: strong</string>
+    <string name="backup_import_dialog_title">Import backup</string>
+    <string name="import_merge">Merge</string>
+    <string name="import_merge_summary">Add the backup\'s messages to your current archive</string>
+    <string name="import_replace">Replace</string>
+    <string name="import_replace_summary">Delete your current archive, then restore the backup</string>
+    <string name="backup_import_action">Import</string>
+    <string name="backup_exporting">Exporting…</string>
+    <string name="backup_importing">Importing…</string>
+    <string name="backup_keep_open">Keep UnsendVault open until this finishes.</string>
+    <string name="backup_export_success">Backup saved: %1$s in %2$s</string>
+    <string name="backup_import_success">Imported %1$s in %2$s</string>
+    <string name="backup_password_lost">The backup was interrupted. Please start the export again.</string>
+    <string name="backup_error_wrong_password">Wrong password, or the file isn\'t an UnsendVault backup.</string>
+    <string name="backup_error_corrupt">The backup file is damaged and can\'t be read.</string>
+    <string name="backup_error_version">This backup was made by a newer version of UnsendVault.</string>
+    <string name="backup_error_io">Couldn\'t read or write the file. Try another location.</string>
+    <string name="backup_error_empty_password">Enter the backup password.</string>
+
+    <!-- Reliability -->
+    <string name="reliability_title">Battery &amp; reliability</string>
+    <string name="reliability_summary">Keep capture running on devices that stop background apps</string>
+    <string name="reliability_intro">Android connects UnsendVault\'s notification listener on its own, and the app doesn\'t need to stay open. Some phones still stop or disconnect background services to save battery. These steps make capture more reliable.</string>
+    <string name="reliability_battery_title">Don\'t restrict battery use</string>
+    <string name="reliability_battery_body">In the list that opens, find UnsendVault and choose “Don\'t optimize” or “Unrestricted”.</string>
+    <string name="reliability_battery_unrestricted">Currently: not restricted</string>
+    <string name="reliability_battery_optimized">Currently: battery optimized</string>
+    <string name="reliability_battery_action">Open battery settings</string>
+    <string name="reliability_oem_title">Extra step for %1$s phones</string>
+    <string name="reliability_oem_xiaomi">Allow Autostart for UnsendVault, and set its battery saver to “No restrictions”.</string>
+    <string name="reliability_oem_samsung">In Device care → Battery, make sure UnsendVault isn\'t in “Sleeping apps” or “Deep sleeping apps”, and add it to “Never sleeping apps”.</string>
+    <string name="reliability_oem_huawei">In App launch, set UnsendVault to “Manage manually” and allow auto-launch and running in background.</string>
+    <string name="reliability_oem_oppo">Allow Auto launch (or Startup manager) for UnsendVault and allow background activity in its battery settings.</string>
+    <string name="reliability_oem_vivo">Allow background startup for UnsendVault and allow high background power consumption.</string>
+    <string name="reliability_oem_oneplus">Allow Auto launch for UnsendVault and set battery optimization to “Don\'t optimize”.</string>
+    <string name="reliability_oem_asus">In Mobile Manager, allow Auto-start for UnsendVault.</string>
+    <string name="reliability_oem_generic">Look for an auto-start or background activity setting for UnsendVault.</string>
+    <string name="reliability_oem_action">Open manufacturer settings</string>
+    <string name="reliability_rebind_title">If capture stays disconnected</string>
+    <string name="reliability_rebind_body">Turn UnsendVault off and on again in Notification access. This forces Android to reconnect the listener.</string>
+    <string name="reliability_rebind_action">Open notification access</string>
+    <string name="reliability_recents_tip">Tip: some phones let you lock an app in the Recents screen so it isn\'t cleared by “Close all”.</string>
+    <string name="reliability_no_guarantee">These settings differ between manufacturers and Android versions. If a button opens the wrong screen, use the app info page instead. Even with every step done, the system may still stop capture in rare cases.</string>
+
+    <!-- About -->
+    <string name="about_title">About &amp; limitations</string>
+    <string name="about_summary">What UnsendVault can and can\'t save, licenses</string>
+    <string name="about_version">Version %1$s · Android %2$s (API %3$d)</string>
+    <string name="about_intro">UnsendVault keeps an on-device archive of the message previews Android shows in notifications. It is an independent app and not affiliated with any messaging service.</string>
+    <string name="about_saves_title">What is saved</string>
+    <string-array name="about_saves">
+        <item>Text of message notifications that arrive after notification access is granted and while capture is active.</item>
+        <item>Sender, conversation and time as reported by the notification.</item>
+        <item>Updated notification text, as update history.</item>
+        <item>Deletion notices the app itself displays, used to mark a message as possibly deleted.</item>
+    </string-array>
+    <string name="about_not_saved_title">What can\'t be saved</string>
+    <string-array name="about_not_saved">
+        <item>Anything from before access was granted, or while capture was paused or disconnected.</item>
+        <item>Messages from muted chats, chats with previews hidden or notifications turned off, and chats you had open while the message arrived.</item>
+        <item>Photos, videos, voice notes, stickers and files (only their text placeholder).</item>
+        <item>Content Android withholds from notification listeners.</item>
+        <item>Anything from the chat service\'s servers: UnsendVault can\'t recover messages, it only keeps what your phone already showed.</item>
+    </string-array>
+    <string name="about_deleted_title">About “possibly deleted”</string>
+    <string name="about_deleted_body">A message is marked possibly deleted only when the app itself showed a deletion notice for it, such as “This message was deleted”, and the stored notice is shown with it. A notification disappearing is never treated as a deletion; apps clear notifications for many ordinary reasons.</string>
+    <string name="about_android_title">Android version notes</string>
+    <string-array name="about_android_notes">
+        <item>Android 15 and later: one-time passwords and other sensitive notification content are hidden from notification listeners that the system doesn\'t trust. These messages appear as “Hidden by Android”.</item>
+        <item>Android 17: the system may withhold the text of messaging notifications from notification listeners that are not on its allowlist. Affected messages appear as “Hidden by Android” and their text can\'t be saved.</item>
+        <item>Some manufacturers stop background services aggressively; see Battery &amp; reliability.</item>
+    </string-array>
+    <string name="about_privacy_title">Privacy</string>
+    <string-array name="about_privacy">
+        <item>No internet permission: nothing is uploaded, no analytics, no ads.</item>
+        <item>The archive is encrypted on the device with a key held by the Android Keystore.</item>
+        <item>Android cloud backup is disabled; encrypted exports are created only when you ask.</item>
+    </string-array>
+    <string name="about_licenses_title">Open-source licenses</string>
+    <string name="about_trademarks">App names are trademarks of their respective owners and are used only to identify the apps a notification came from.</string>
+</resources>

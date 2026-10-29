@@ -1,0 +1,156 @@
+package com.riyadm.unsendvault.ui
+
+import app.cash.turbine.test
+import com.riyadm.unsendvault.core.model.ThemeMode
+import com.riyadm.unsendvault.core.model.VaultSettings
+import com.riyadm.unsendvault.data.fake.InMemorySettingsRepository
+import com.riyadm.unsendvault.data.fake.InMemoryVaultRepository
+import com.riyadm.unsendvault.core.model.MessageQuery
+import com.riyadm.unsendvault.ui.settings.InstalledApp
+import com.riyadm.unsendvault.ui.settings.SettingsEvent
+import com.riyadm.unsendvault.ui.settings.SettingsViewModel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+
+class SettingsViewModelTest {
+    @get:Rule val main = MainDispatcherRule()
+
+    private val settings = InMemorySettingsRepository(VaultSettings(onboardingCompleted = true))
+    private val vault = InMemoryVaultRepository(Fixtures.conversations, Fixtures.messages)
+    private val scheduler = FakeRetentionScheduler(deletes = 3)
+    private val launcher = listOf(InstalledApp("com.example.notes", "Notes"), InstalledApp(Fixtures.WHATSAPP, "WhatsApp"))
+    private var demoCalls = 0
+
+    private fun vm(withDemo: Boolean = false) = SettingsViewModel(
+        settings, vault, scheduler, { launcher },
+        demoDataInserter = if (withDemo) ({ demoCalls++; 7 }) else null,
+    )
+
+    @Test
+    fun retentionUpdatesSettingsAndReschedules() = runTest {
+        val vm = vm()
+        vm.setRetentionDays(90)
+        assertEquals(90, settings.current.retentionDays)
+        assertEquals(listOf(90), scheduler.scheduled)
+        vm.setRetentionDays(0)
+        assertEquals(listOf(90, 0), scheduler.scheduled)
+    }
+
+    @Test
+    fun runCleanupNowReportsDeletedCount() = runTest {
+        val vm = vm()
+        vm.events.test {
+            vm.runCleanupNow()
+            assertEquals(SettingsEvent.CleanupFinished(3), awaitItem())
+        }
+        assertEquals(1, scheduler.runs)
+    }
+
+    @Test
+    fun excludingAppWithMessagesOffersDeletion() = runTest {
+        val vm = vm()
+        vm.state.testState {
+            val state = awaitMatching { it.settings != null && it.archiveApps.size == 2 }
+            val telegram = state.exclusionCandidates.first { it.packageName == Fixtures.TELEGRAM }
+            vm.events.test {
+                vm.setExcluded(telegram, true)
+                assertEquals(SettingsEvent.OfferDeleteAppData(Fixtures.TELEGRAM, "Telegram", 1), awaitItem())
+                vm.deleteAppData(Fixtures.TELEGRAM, "Telegram")
+                assertEquals(SettingsEvent.AppDataDeleted("Telegram"), awaitItem())
+            }
+        }
+        assertTrue(Fixtures.TELEGRAM in settings.current.excludedPackages)
+        assertTrue(vault.observeMessages(MessageQuery(packages = setOf(Fixtures.TELEGRAM))).first().isEmpty())
+    }
+
+    @Test
+    fun excludingAppWithoutMessagesDoesNotOffer() = runTest {
+        val vm = vm()
+        vm.loadLauncherApps()
+        vm.state.testState {
+            val state = awaitMatching { it.launcherApps != null && it.settings != null }
+            val notes = state.exclusionCandidates.first { it.packageName == "com.example.notes" }
+            vm.events.test {
+                vm.setExcluded(notes, true)
+                expectNoEvents()
+            }
+            val updated = awaitMatching { s -> s.exclusionCandidates.first { it.packageName == "com.example.notes" }.excluded }
+            // Archive apps first, then other launcher apps; WhatsApp is not duplicated.
+            assertEquals(listOf("org.telegram.messenger", "com.whatsapp", "com.example.notes").sorted(), updated.exclusionCandidates.map { it.packageName }.sorted())
+            assertEquals(3, updated.exclusionCandidates.size)
+            assertEquals("com.example.notes", updated.exclusionCandidates.last().packageName)
+            vm.setExcluded(notes.copy(excluded = true), false)
+            awaitMatching { s -> !s.exclusionCandidates.first { it.packageName == "com.example.notes" }.excluded }
+        }
+    }
+
+    @Test
+    fun appLockForcesWidgetContentOff() = runTest {
+        val vm = vm()
+        vm.setWidgetShowContent(true)
+        assertTrue(settings.current.widgetShowContent)
+        vm.setAppLockEnabled(true)
+        assertTrue(settings.current.appLockEnabled)
+        assertFalse(settings.current.widgetShowContent)
+        vm.setWidgetShowContent(true)
+        assertFalse("widget content must stay hidden while locked", settings.current.widgetShowContent)
+        vm.setAppLockEnabled(false)
+        vm.setWidgetShowContent(true)
+        assertTrue(settings.current.widgetShowContent)
+    }
+
+    @Test
+    fun simpleTogglesPersist() = runTest {
+        val vm = vm()
+        vm.setCaptureEnabled(false)
+        vm.setMessagesOnly(false)
+        vm.setFilterOtp(false)
+        vm.setFilterSensitive(false)
+        vm.setSecureScreen(false)
+        vm.setLockTimeout(300)
+        vm.setThemeMode(ThemeMode.DARK)
+        vm.setAmoledBlack(true)
+        vm.setDynamicColor(false)
+        vm.setBackupReminderDays(14)
+        val s = settings.current
+        assertFalse(s.captureEnabled)
+        assertFalse(s.messagesOnly)
+        assertFalse(s.filterOtp)
+        assertFalse(s.filterSensitive)
+        assertFalse(s.secureScreen)
+        assertEquals(300, s.lockTimeoutSeconds)
+        assertEquals(ThemeMode.DARK, s.themeMode)
+        assertTrue(s.amoledBlack)
+        assertFalse(s.dynamicColor)
+        assertEquals(14, s.backupReminderDays)
+    }
+
+    @Test
+    fun deleteAllClearsArchiveButKeepsSettings() = runTest {
+        settings.update { it.copy(retentionDays = 7) }
+        val vm = vm()
+        vm.events.test {
+            vm.deleteAll()
+            assertEquals(SettingsEvent.AllDataDeleted, awaitItem())
+        }
+        assertTrue(vault.observeMessages(MessageQuery()).first().isEmpty())
+        assertEquals(7, settings.current.retentionDays)
+    }
+
+    @Test
+    fun demoDataOnlyWhenInserterProvided() = runTest {
+        assertFalse(vm().canInsertDemoData)
+        val vm = vm(withDemo = true)
+        assertTrue(vm.canInsertDemoData)
+        vm.events.test {
+            vm.insertDemoData()
+            assertEquals(SettingsEvent.DemoDataInserted(7), awaitItem())
+        }
+        assertEquals(1, demoCalls)
+    }
+}

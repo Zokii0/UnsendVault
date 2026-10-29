@@ -223,6 +223,8 @@ dependencies {
     implementation(libs.sqlcipher.android)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.biometric)
+    // MainActivity is a FragmentActivity (BiometricPrompt) that also uses ActivityResult APIs (SAF backup pickers).
+    implementation(libs.androidx.fragment)
     implementation(libs.androidx.work.runtime.ktx)
 
     implementation(libs.kotlinx.coroutines.android)
