@@ -5,7 +5,7 @@ https://github.com/riyadmondol2006/UnsendVault.
 
 ## Summary
 
-UnsendVault stores message previews from your notifications **on your phone only**, in an encrypted database. The
+UnsendVault stores message previews from your notifications **on your phone only**, with the message content encrypted. The
 developer receives nothing: the app has no internet permission and contains no analytics, advertising, crash
 reporting or other third-party services.
 
@@ -21,8 +21,11 @@ anything inside other apps that was not shown in a notification.
 
 ## What the app stores, and where
 
-- Archived messages, conversation names, update history and deletion markers: in an app-private database encrypted
-  with SQLCipher. The database key is generated on the device and protected by the Android Keystore.
+- Archived messages, conversation names, update history and deletion markers: in an app-private database. Message
+  text, sender names, conversation titles, edit history and deletion markers are each encrypted (AES-256-GCM) with a
+  key that is generated on the device and protected by the Android Keystore. App names, package names, timestamps,
+  favorite/deleted flags and message counts are stored without this extra encryption; like everything in app-private
+  storage they are still covered by Android's own file-based encryption of the device.
 - Your settings: in app-private storage (DataStore).
 - Before storage, one-time codes and sensitive numbers are replaced by a placeholder when the corresponding filters
   are on (they are on by default). Content that Android itself hides is not stored.

@@ -20,10 +20,6 @@
 }
 -keep,includedescriptorclasses class com.riyadm.unsendvault.data.backup.**$$serializer,com.riyadm.unsendvault.ui.navigation.**$$serializer { *; }
 
-# SQLCipher uses JNI callbacks into these classes.
--keep class net.zetetic.database.** { *; }
--dontwarn net.zetetic.database.**
-
 # Release builds drop verbose/debug/info logging (app and libraries); warnings and errors stay.
 -assumenosideeffects class android.util.Log {
     public static int v(...);

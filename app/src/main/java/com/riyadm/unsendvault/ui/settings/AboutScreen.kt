@@ -31,7 +31,6 @@ import com.riyadm.unsendvault.ui.components.AppScaffold
 data class LicenseEntry(val name: String, val owner: String, val license: String)
 
 val OpenSourceLicenses: List<LicenseEntry> = listOf(
-    LicenseEntry("SQLCipher for Android", "Zetetic LLC", "BSD-style (SQLCipher Community Edition license)"),
     LicenseEntry("AndroidX (Activity, Biometric, Core, DataStore, Fragment, Lifecycle, Navigation, Room, SQLite, WorkManager)", "The Android Open Source Project", "Apache License 2.0"),
     LicenseEntry("Jetpack Compose, Material 3 and Material Icons", "The Android Open Source Project", "Apache License 2.0"),
     LicenseEntry("Jetpack Glance", "The Android Open Source Project", "Apache License 2.0"),

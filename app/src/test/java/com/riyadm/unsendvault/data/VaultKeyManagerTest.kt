@@ -1,5 +1,6 @@
 package com.riyadm.unsendvault.data
 
+import com.riyadm.unsendvault.data.security.FieldCipher
 import com.riyadm.unsendvault.data.security.KeyWrapper
 import com.riyadm.unsendvault.data.security.VaultKeyException
 import com.riyadm.unsendvault.data.security.VaultKeyManager
@@ -76,78 +77,81 @@ class VaultKeyManagerTest {
     }
 
     @Test
-    fun firstRun_createsKey_thenReturnsSamePassphrase() {
-        val p1 = manager().loadOrCreatePassphrase(databaseExists = false)
+    fun firstRun_createsKey_thenReturnsSameRootSecret() {
+        val p1 = manager().loadOrCreateRootSecret(databaseExists = false)
         assertTrue(file.exists())
-        assertEquals(67, p1.size)
-        val s = String(p1, Charsets.US_ASCII)
-        assertTrue(s.matches(Regex("x'[0-9a-f]{64}'")))
+        assertEquals(32, p1.size)
+        assertFalse(p1.all { it == 0.toByte() })
         assertEquals(false, wrapper.createdWithStrongBox) // TEE by default
         // The raw key never appears in the key file.
-        assertFalse(String(file.readBytes(), Charsets.ISO_8859_1).contains(s.substring(2, 20)))
-        assertArrayEquals(p1, manager().loadOrCreatePassphrase(databaseExists = true))
+        val stored = file.readBytes()
+        assertFalse((0..stored.size - 16).any { i -> stored.copyOfRange(i, i + 16).contentEquals(p1.copyOf(16)) })
+        assertArrayEquals(p1, manager().loadOrCreateRootSecret(databaseExists = true))
     }
 
     @Test
     fun strongBoxFailure_fallsBackToTee() {
         wrapper.strongBoxFails = true
         VaultKeyManager(file, wrapper, SecureRandom(), retryDelaysMs = listOf(1, 1), sleeper = {}, keyPlacements = listOf(true, false))
-            .loadOrCreatePassphrase(false)
+            .loadOrCreateRootSecret(false)
         assertEquals(false, wrapper.createdWithStrongBox)
     }
 
     @Test
     fun keyFileMissingButDatabaseExists_isKeyLost_andDoesNotCreate() {
-        expect(VaultKeyState.Reason.KEY_LOST) { manager().loadOrCreatePassphrase(databaseExists = true) }
+        expect(VaultKeyState.Reason.KEY_LOST) { manager().loadOrCreateRootSecret(databaseExists = true) }
         assertFalse(file.exists())
     }
 
     @Test
     fun keystoreWiped_isKeyLost() {
-        manager().loadOrCreatePassphrase(false)
+        manager().loadOrCreateRootSecret(false)
         wrapper.key = null
-        expect(VaultKeyState.Reason.KEY_LOST) { manager().loadOrCreatePassphrase(true) }
+        expect(VaultKeyState.Reason.KEY_LOST) { manager().loadOrCreateRootSecret(true) }
         assertTrue("never deletes the key file on its own", file.exists())
     }
 
     @Test
     fun differentKeystoreKey_isCorrupt() {
-        manager().loadOrCreatePassphrase(false)
+        manager().loadOrCreateRootSecret(false)
         wrapper.createKey(false) // key replaced → tag mismatch
-        expect(VaultKeyState.Reason.KEY_FILE_CORRUPT) { manager().loadOrCreatePassphrase(true) }
+        expect(VaultKeyState.Reason.KEY_FILE_CORRUPT) { manager().loadOrCreateRootSecret(true) }
     }
 
     @Test
     fun malformedFile_isCorrupt() {
-        manager().loadOrCreatePassphrase(false)
+        manager().loadOrCreateRootSecret(false)
         file.writeBytes(byteArrayOf(9, 1, 2, 3))
-        expect(VaultKeyState.Reason.KEY_FILE_CORRUPT) { manager().loadOrCreatePassphrase(true) }
+        expect(VaultKeyState.Reason.KEY_FILE_CORRUPT) { manager().loadOrCreateRootSecret(true) }
         file.writeBytes(byteArrayOf(1, 12, 0))
-        expect(VaultKeyState.Reason.KEY_FILE_CORRUPT) { manager().loadOrCreatePassphrase(true) }
+        expect(VaultKeyState.Reason.KEY_FILE_CORRUPT) { manager().loadOrCreateRootSecret(true) }
     }
 
     @Test
     fun transientKeystoreErrors_areRetried_thenReported() {
-        val p = manager().loadOrCreatePassphrase(false)
+        val p = manager().loadOrCreateRootSecret(false)
         wrapper.transientFailures = 2
-        assertArrayEquals(p, manager().loadOrCreatePassphrase(true))
+        assertArrayEquals(p, manager().loadOrCreateRootSecret(true))
         wrapper.transientFailures = 10
-        expect(VaultKeyState.Reason.KEYSTORE_ERROR) { manager().loadOrCreatePassphrase(true) }
+        expect(VaultKeyState.Reason.KEYSTORE_ERROR) { manager().loadOrCreateRootSecret(true) }
     }
 
     @Test
     fun destroy_removesFileAndKey_thenFreshKeyIsDifferent() {
-        val p1 = manager().loadOrCreatePassphrase(false)
+        val p1 = manager().loadOrCreateRootSecret(false)
         manager().destroy()
         assertFalse(file.exists())
         assertFalse(wrapper.keyExists())
-        val p2 = manager().loadOrCreatePassphrase(false)
+        val p2 = manager().loadOrCreateRootSecret(false)
         assertFalse(p1.contentEquals(p2))
     }
 
     @Test
-    fun rawKeyFormat() {
-        val raw = ByteArray(32) { it.toByte() }
-        assertEquals("x'000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'", String(VaultKeyManager.toSqlCipherRawKey(raw)))
+    fun sameRootSecret_derivesSameKeys_acrossInstances() {
+        val cipher1 = FieldCipher.fromRootSecret(manager().loadOrCreateRootSecret(false))
+        val cipher2 = FieldCipher.fromRootSecret(manager().loadOrCreateRootSecret(true))
+        val blob = cipher1.encrypt("persisted", FieldCipher.Field.MESSAGE_TEXT, "c:1")
+        assertEquals("persisted", cipher2.decryptOrNull(blob, FieldCipher.Field.MESSAGE_TEXT, "c:1"))
+        assertEquals(cipher1.blindIndex("x", FieldCipher.IndexDomain.TEXT), cipher2.blindIndex("x", FieldCipher.IndexDomain.TEXT))
     }
 }

@@ -8,22 +8,22 @@ import androidx.room.RoomRawQuery
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
-private const val MESSAGE_ROW_SELECT =
-    "SELECT m.*, c.app_label AS app_label, c.title AS conversation_title " +
+internal const val MESSAGE_ROW_SELECT =
+    "SELECT m.*, c.app_label AS app_label, c.title AS conversation_title, c.conversation_index AS conversation_index " +
         "FROM messages m INNER JOIN conversations c ON c.id = m.conversation_id"
 
 @Dao
 interface VaultDao {
     // ---- Conversations --------------------------------------------------------------------------------------------
 
-    @Query("SELECT * FROM conversations WHERE package_name = :packageName AND conversation_key = :conversationKey LIMIT 1")
-    suspend fun findConversation(packageName: String, conversationKey: String): ConversationEntity?
+    @Query("SELECT * FROM conversations WHERE package_name = :packageName AND conversation_index = :conversationIndex LIMIT 1")
+    suspend fun findConversation(packageName: String, conversationIndex: String): ConversationEntity?
 
     @Insert
     suspend fun insertConversation(entity: ConversationEntity): Long
 
     @Query("UPDATE conversations SET title = :title, is_group = :isGroup, app_label = :appLabel WHERE id = :id")
-    suspend fun updateConversationMeta(id: Long, title: String, isGroup: Boolean, appLabel: String)
+    suspend fun updateConversationMeta(id: Long, title: ByteArray, isGroup: Boolean, appLabel: String)
 
     @Query("SELECT * FROM conversations ORDER BY last_message_at DESC, id DESC")
     fun observeConversations(): Flow<List<ConversationEntity>>
@@ -34,20 +34,24 @@ interface VaultDao {
     @Query("SELECT * FROM conversations WHERE id = :id")
     fun observeConversation(id: Long): Flow<ConversationEntity?>
 
-    /** Recomputes message_count / last_message_at / last_message_preview from the messages table. */
+    @Query("SELECT * FROM conversations WHERE id = :id")
+    suspend fun conversation(id: Long): ConversationEntity?
+
+    /**
+     * Recomputes message_count / last_message_at from the messages table. last_message_preview is encrypted under the
+     * conversation's own AAD, so the repository re-encrypts it from [latestTexts] (see setPreview).
+     */
     @Query(
         """
         UPDATE conversations SET
             message_count = (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = conversations.id),
             last_message_at = COALESCE(
                 (SELECT MAX(m.message_timestamp) FROM messages m WHERE m.conversation_id = conversations.id),
-                last_message_at),
-            last_message_preview = (SELECT m.text FROM messages m WHERE m.conversation_id = conversations.id
-                ORDER BY m.message_timestamp DESC, m.id DESC LIMIT 1)
+                last_message_at)
         WHERE id IN (:ids)
         """,
     )
-    suspend fun recomputeAggregates(ids: List<Long>)
+    suspend fun recomputeCounts(ids: List<Long>)
 
     @Query(
         """
@@ -55,12 +59,26 @@ interface VaultDao {
             message_count = (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = conversations.id),
             last_message_at = COALESCE(
                 (SELECT MAX(m.message_timestamp) FROM messages m WHERE m.conversation_id = conversations.id),
-                last_message_at),
-            last_message_preview = (SELECT m.text FROM messages m WHERE m.conversation_id = conversations.id
-                ORDER BY m.message_timestamp DESC, m.id DESC LIMIT 1)
+                last_message_at)
         """,
     )
-    suspend fun recomputeAllAggregates()
+    suspend fun recomputeAllCounts()
+
+    @Query(
+        """
+        SELECT c.id AS id, c.package_name AS package_name, c.conversation_index AS conversation_index,
+            (SELECT m.text FROM messages m WHERE m.conversation_id = c.id
+                ORDER BY m.message_timestamp DESC, m.id DESC LIMIT 1) AS text
+        FROM conversations c WHERE c.id IN (:ids)
+        """,
+    )
+    suspend fun latestTexts(ids: List<Long>): List<LatestTextRow>
+
+    @Query("SELECT id FROM conversations ORDER BY id")
+    suspend fun allConversationIds(): List<Long>
+
+    @Query("UPDATE conversations SET last_message_preview = :preview WHERE id = :id")
+    suspend fun setPreview(id: Long, preview: ByteArray?)
 
     @Query("DELETE FROM conversations WHERE NOT EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = conversations.id)")
     suspend fun deleteEmptyConversations(): Int
@@ -80,52 +98,33 @@ interface VaultDao {
     // ---- Message identity / ingest --------------------------------------------------------------------------------
 
     @Query(
-        "SELECT * FROM messages WHERE conversation_id = :conversationId AND sender_key = :senderKey " +
+        "SELECT * FROM messages WHERE conversation_id = :conversationId AND sender_index = :senderIndex " +
             "AND message_timestamp = :timestamp ORDER BY id LIMIT 1",
     )
-    suspend fun findByPreciseIdentity(conversationId: Long, senderKey: String, timestamp: Long): MessageEntity?
-
-    /** Same text from the same sender close to [timestamp]; [preciseOnly] -1 = any, 0 = imprecise only, 1 = precise only. */
-    @Query(
-        """
-        SELECT * FROM messages WHERE conversation_id = :conversationId AND sender_key = :senderKey
-            AND normalized_text = :normalizedText AND message_timestamp BETWEEN :from AND :to
-            AND (:preciseOnly < 0 OR has_precise_timestamp = :preciseOnly)
-        ORDER BY ABS(message_timestamp - :timestamp), id LIMIT 1
-        """,
-    )
-    suspend fun findByTextIdentity(
-        conversationId: Long,
-        senderKey: String,
-        normalizedText: String,
-        timestamp: Long,
-        from: Long,
-        to: Long,
-        preciseOnly: Int,
-    ): MessageEntity?
+    suspend fun findByPreciseIdentity(conversationId: Long, senderIndex: String, timestamp: Long): MessageEntity?
 
     /** Same text from the same sender within [from]..[to], closest to [timestamp] first. */
     @Query(
         """
-        SELECT * FROM messages WHERE conversation_id = :conversationId AND sender_key = :senderKey
-            AND normalized_text = :normalizedText AND message_timestamp BETWEEN :from AND :to
+        SELECT * FROM messages WHERE conversation_id = :conversationId AND sender_index = :senderIndex
+            AND text_index = :textIndex AND message_timestamp BETWEEN :from AND :to
         ORDER BY ABS(message_timestamp - :timestamp), id LIMIT 16
         """,
     )
     suspend fun findSameTextNear(
         conversationId: Long,
-        senderKey: String,
-        normalizedText: String,
+        senderIndex: String,
+        textIndex: String,
         timestamp: Long,
         from: Long,
         to: Long,
     ): List<MessageEntity>
 
     @Query(
-        "SELECT COUNT(*) FROM messages WHERE conversation_id = :conversationId AND sender_key = :senderKey " +
+        "SELECT COUNT(*) FROM messages WHERE conversation_id = :conversationId AND sender_index = :senderIndex " +
             "AND message_timestamp = :timestamp",
     )
-    suspend fun countAtPreciseIdentity(conversationId: Long, senderKey: String, timestamp: Long): Int
+    suspend fun countAtPreciseIdentity(conversationId: Long, senderIndex: String, timestamp: Long): Int
 
     @Insert
     suspend fun insertMessage(entity: MessageEntity): Long
@@ -133,18 +132,18 @@ interface VaultDao {
     @Update
     suspend fun updateMessage(entity: MessageEntity)
 
-    @Query("UPDATE messages SET last_notification_key = :key WHERE id = :id")
-    suspend fun updateNotificationKey(id: Long, key: String)
+    @Query("UPDATE messages SET last_notification_index = :notificationIndex WHERE id = :id")
+    suspend fun updateNotificationIndex(id: Long, notificationIndex: String)
 
     /** Up to [limit] ids of ACTIVE messages from one sender in a time window (deletion-marker candidate search). */
     @Query(
         """
-        SELECT * FROM messages WHERE conversation_id = :conversationId AND sender_key = :senderKey
+        SELECT * FROM messages WHERE conversation_id = :conversationId AND sender_index = :senderIndex
             AND status = 'ACTIVE' AND message_timestamp BETWEEN :from AND :to
         ORDER BY message_timestamp DESC LIMIT :limit
         """,
     )
-    suspend fun activeFromSenderBetween(conversationId: Long, senderKey: String, from: Long, to: Long, limit: Int): List<MessageEntity>
+    suspend fun activeFromSenderBetween(conversationId: Long, senderIndex: String, from: Long, to: Long, limit: Int): List<MessageEntity>
 
     @Query(
         """
@@ -153,18 +152,28 @@ interface VaultDao {
         WHERE id = :id AND status = 'ACTIVE'
         """,
     )
-    suspend fun markPossiblyDeleted(id: Long, adapterId: String, markerText: String, observedAt: Long): Int
+    suspend fun markPossiblyDeleted(id: Long, adapterId: String, markerText: ByteArray, observedAt: Long): Int
 
     @Query(
         "UPDATE messages SET last_removal_reason = :reason, last_removed_at = :removedAt " +
-            "WHERE last_notification_key = :notificationKey",
+            "WHERE last_notification_index = :notificationIndex",
     )
-    suspend fun recordRemoval(notificationKey: String, reason: String, removedAt: Long): Int
+    suspend fun recordRemoval(notificationIndex: String, reason: String, removedAt: Long): Int
 
     // ---- Message reads ---------------------------------------------------------------------------------------------
 
     @RawQuery(observedEntities = [MessageEntity::class, ConversationEntity::class])
     fun observeMessageRows(query: RoomRawQuery): Flow<List<MessageRow>>
+
+    @RawQuery
+    suspend fun messageRows(query: RoomRawQuery): List<MessageRow>
+
+    /** One page of the search scan (see [com.riyadm.unsendvault.data.repo.SearchSql.scanPage]). */
+    @RawQuery
+    suspend fun scanRows(query: RoomRawQuery): List<ScanRow>
+
+    @Query("$MESSAGE_ROW_SELECT WHERE m.id IN (:ids)")
+    suspend fun messageRowsByIds(ids: List<Long>): List<MessageRow>
 
     @Query("$MESSAGE_ROW_SELECT WHERE m.id = :id")
     fun observeMessageRow(id: Long): Flow<MessageRow?>
@@ -229,4 +238,12 @@ interface VaultDao {
 
     @Query("DELETE FROM messages WHERE message_timestamp < :cutoff AND (:keepFavorites = 0 OR is_favorite = 0)")
     suspend fun deleteOlderThan(cutoff: Long, keepFavorites: Boolean): Int
+
+    // ---- Vault meta ------------------------------------------------------------------------------------------------
+
+    @Query("SELECT value FROM vault_meta WHERE `key` = :key")
+    suspend fun metaValue(key: String): ByteArray?
+
+    @Query("INSERT OR REPLACE INTO vault_meta (`key`, value) VALUES (:key, :value)")
+    suspend fun putMeta(key: String, value: ByteArray)
 }

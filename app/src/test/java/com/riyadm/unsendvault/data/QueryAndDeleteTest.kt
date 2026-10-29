@@ -46,16 +46,30 @@ class QueryAndDeleteTest : RoomTestBase() {
     }
 
     @Test
-    fun fts_prefixAndMultiTerm() = runBlocking {
+    fun search_substringAndMultiTermAnd() = runBlocking {
         seed()
         assertEquals(setOf("Hello world, meeting at noon"), search("meet"))
         assertEquals(setOf("Hello world, meeting at noon"), search("noon HELLO"))
         assertEquals(setOf("Project kickoff notes"), search("kick"))
         assertEquals(emptySet<String>(), search("hello kickoff"))
+        // Substring, not just prefix.
+        assertEquals(setOf("Hello world, meeting at noon"), search("eeting"))
+        // Terms may come from different fields: text + conversation title.
+        assertEquals(setOf("Hello world, meeting at noon"), search("noon alice"))
+        assertEquals(setOf("Project kickoff notes"), search("kickoff work bob"))
     }
 
     @Test
-    fun fts_matchesSenderAndTitle_andUnicodeFolding() = runBlocking {
+    fun search_caseAndDiacriticInsensitive() = runBlocking {
+        seed()
+        assertEquals(setOf("Café crème brûlée"), search("cafe CREME brulee"))
+        assertEquals(setOf("Café crème brûlée"), search("zoe"))
+        assertEquals(setOf("Café crème brûlée"), search("BRÛLÉE"))
+        assertEquals(setOf("Café crème brûlée"), search("café")) // decomposed input
+    }
+
+    @Test
+    fun search_matchesSenderAndTitle_andUnicodeFolding() = runBlocking {
         seed()
         assertEquals(setOf("Project kickoff notes", "quote \"inside\" here"), search("bob"))
         assertEquals(setOf("Project kickoff notes", "quote \"inside\" here"), search("Work Group"))
@@ -77,7 +91,7 @@ class QueryAndDeleteTest : RoomTestBase() {
     }
 
     @Test
-    fun likeFallback_shortAndCjk_andEscapesWildcards() = runBlocking {
+    fun search_shortCjkAndWildcardCharacters() = runBlocking {
         seed()
         assertEquals(setOf("我们明天见面吧"), search("见面"))
         assertEquals(setOf("我们明天见面吧"), search("李"))
@@ -111,6 +125,15 @@ class QueryAndDeleteTest : RoomTestBase() {
         // Combined: text + package + favorites.
         assertEquals(emptyList<Long>(), repo.observeMessages(MessageQuery(text = "Café", favoritesOnly = true, packages = setOf("org.other.app"))).first().map { it.id })
         assertEquals(listOf(target.id), repo.observeMessages(MessageQuery(text = "Café", favoritesOnly = true, packages = setOf(Fx.PKG))).first().map { it.id })
+        // Text + conversation + date range, and limit applies to matches.
+        val c1Id = repo.observeConversations(setOf(Fx.PKG)).first().single().id
+        // "a" is in "Café" (text) and in the title "Alice" (the CJK message), newest first.
+        assertEquals(
+            listOf("Café crème brûlée", "我们明天见面吧"),
+            repo.observeMessages(MessageQuery(text = "a", conversationId = c1Id, fromMillis = T0 + 2 * MIN)).first().map { it.text },
+        )
+        assertEquals(1, repo.observeMessages(MessageQuery(text = "o", limit = 1)).first().size)
+        assertEquals(T0 + 5 * MIN, repo.observeMessages(MessageQuery(text = "o", limit = 1)).first().single().messageTimestamp)
 
         repo.setFavorite(target.id, false)
         assertTrue(repo.observeFavorites(10).first().isEmpty())
@@ -139,7 +162,7 @@ class QueryAndDeleteTest : RoomTestBase() {
     }
 
     @Test
-    fun deleteMessages_cascadesRevisions_prunesEmptyConversation_andFts() = runBlocking {
+    fun deleteMessages_cascadesRevisions_prunesEmptyConversation_andSearch() = runBlocking {
         repo.ingest(parsed(msg("v1 alpha")), T0)
         repo.ingest(parsed(msg("v2 alpha")), T0 + 1)
         repo.ingest(parsed(msg("other", key = "c2", ts = T0 + 5)), T0)

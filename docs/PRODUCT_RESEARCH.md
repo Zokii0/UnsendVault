@@ -21,7 +21,7 @@ encrypted, and with nothing sent off it.
 |---|---|---|
 | Someone who missed a message before it was deleted or unsent | See what the notification said | The archived preview, with a "possibly deleted" label only when the source app itself displayed a deletion marker |
 | Someone who reads previews on the go | Find a message preview later | Search across apps, conversations, dates |
-| Someone who wants a personal record of what they received | Keep it private | Local only, encrypted database, app lock, no network permission |
+| Someone who wants a personal record of what they received | Keep it private | Local only, encrypted message content, app lock, no network permission |
 
 ### Who it is not for
 

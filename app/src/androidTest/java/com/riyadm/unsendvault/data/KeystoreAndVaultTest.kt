@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.riyadm.unsendvault.core.model.MessageQuery
 import com.riyadm.unsendvault.data.repo.RoomVaultRepository
 import com.riyadm.unsendvault.data.security.AndroidKeystoreKeyWrapper
+import com.riyadm.unsendvault.data.security.FieldCipher
 import com.riyadm.unsendvault.data.security.VaultKeyManager
 import com.riyadm.unsendvault.data.security.VaultKeyState
 import com.riyadm.unsendvault.data.security.WrappingKeyMissingException
@@ -29,12 +30,19 @@ class KeystoreAndVaultTest {
     private val alias = "unsendvault.test.kek"
     private val keyFile = File(context.noBackupFilesDir, "uv-test-vault.key")
     private val dbName = "uv-keystore-e2e-test.db"
+    private val legacyName = "uv-keystore-e2e-legacy-test.db"
+    private val noticeFile = File(context.noBackupFilesDir, "uv-test-legacy-notice")
+
+    /** Always pass test file names: the defaults are the real vault's files. */
+    private fun holder() = DataModule.encryptedHolder(context, dbName, keyFile, AndroidKeystoreKeyWrapper(alias), legacyName, noticeFile)
 
     @After
     fun cleanup() {
         runCatching { AndroidKeystoreKeyWrapper(alias).deleteKey() }
         keyFile.delete()
+        noticeFile.delete()
         context.deleteDatabase(dbName)
+        context.deleteDatabase(legacyName)
     }
 
     @Test
@@ -63,24 +71,26 @@ class KeystoreAndVaultTest {
     }
 
     @Test
-    fun keyManager_withRealKeystore_isStable() {
+    fun keyManager_withRealKeystore_isStable_andDerivesSameKeys() {
         val manager = VaultKeyManager(keyFile, AndroidKeystoreKeyWrapper(alias))
-        val p1 = manager.loadOrCreatePassphrase(databaseExists = false)
-        val p2 = VaultKeyManager(keyFile, AndroidKeystoreKeyWrapper(alias)).loadOrCreatePassphrase(databaseExists = true)
+        val p1 = manager.loadOrCreateRootSecret(databaseExists = false)
+        val p2 = VaultKeyManager(keyFile, AndroidKeystoreKeyWrapper(alias)).loadOrCreateRootSecret(databaseExists = true)
         assertArrayEquals(p1, p2)
-        assertEquals(67, p1.size)
+        assertEquals(32, p1.size)
+        val blob = FieldCipher.fromRootSecret(p1).encrypt("x", FieldCipher.Field.MESSAGE_TEXT, "c:1")
+        assertEquals("x", FieldCipher.fromRootSecret(p2).decryptOrNull(blob, FieldCipher.Field.MESSAGE_TEXT, "c:1"))
     }
 
     @Test
     fun encryptedVault_endToEnd_keystoreWipe_isReported_thenResetRecovers() = runBlocking {
-        val repo = RoomVaultRepository(DataModule.encryptedHolder(context, dbName, keyFile, AndroidKeystoreKeyWrapper(alias)))
+        val repo = RoomVaultRepository(holder())
         assertEquals(1, repo.ingest(DeviceFx.parsed(DeviceFx.msg("persisted words")), DeviceFx.T0).inserted)
         assertEquals(VaultKeyState.Ready, repo.keyState.value)
         assertEquals(1, repo.observeMessages(MessageQuery(text = "persisted")).first().size)
 
         // Simulate a wiped Keystore, then a new process opening the vault.
         AndroidKeystoreKeyWrapper(alias).deleteKey()
-        val repo2 = RoomVaultRepository(DataModule.encryptedHolder(context, dbName, keyFile, AndroidKeystoreKeyWrapper(alias)))
+        val repo2 = RoomVaultRepository(holder())
         assertTrue(repo2.observeMessages(MessageQuery()).first().isEmpty())
         val state = repo2.keyState.value as VaultKeyState.Unavailable
         assertEquals(VaultKeyState.Reason.KEY_LOST, state.reason)
@@ -89,5 +99,24 @@ class KeystoreAndVaultTest {
         assertEquals(VaultKeyState.Ready, repo2.resetVault())
         assertEquals(0, repo2.observeStats().first().totalMessages)
         assertEquals(1, repo2.ingest(DeviceFx.parsed(DeviceFx.msg("fresh start")), DeviceFx.T0).inserted)
+    }
+
+    @Test
+    fun legacySqlCipherArchive_isReplaced_keyKept_noticeRaised() = runBlocking {
+        VaultKeyManager(keyFile, AndroidKeystoreKeyWrapper(alias)).loadOrCreateRootSecret(databaseExists = false)
+        val keyBytes = keyFile.readBytes()
+        val legacy = context.getDatabasePath(legacyName).apply { parentFile?.mkdirs() }
+        legacy.writeBytes(ByteArray(8192).also(SecureRandom()::nextBytes)) // SQLCipher page: no SQLite header
+        File(legacy.path + "-wal").writeBytes(ByteArray(1024).also(SecureRandom()::nextBytes))
+
+        val repo = RoomVaultRepository(holder())
+        assertEquals(1, repo.ingest(DeviceFx.parsed(DeviceFx.msg("new vault")), DeviceFx.T0).inserted)
+        assertEquals(VaultKeyState.Ready, repo.keyState.value)
+        assertTrue(repo.legacyArchiveDiscarded.value)
+        assertFalse(legacy.exists())
+        assertFalse(File(legacy.path + "-wal").exists())
+        assertArrayEquals(keyBytes, keyFile.readBytes())
+        repo.dismissLegacyArchiveNotice()
+        assertFalse(noticeFile.exists())
     }
 }

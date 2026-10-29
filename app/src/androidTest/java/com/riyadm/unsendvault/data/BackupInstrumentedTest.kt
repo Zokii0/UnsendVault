@@ -10,8 +10,7 @@ import com.riyadm.unsendvault.data.backup.BackupManagerImpl
 import com.riyadm.unsendvault.data.db.VaultDatabase
 import com.riyadm.unsendvault.data.fake.InMemorySettingsRepository
 import com.riyadm.unsendvault.data.repo.RoomVaultRepository
-import com.riyadm.unsendvault.data.security.SqlCipherSupport
-import com.riyadm.unsendvault.data.security.VaultKeyManager
+import com.riyadm.unsendvault.data.security.FieldCipher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -21,9 +20,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
-import java.security.SecureRandom
 
-/** Full export → import through ContentResolver with the production KDF cost, between two SQLCipher vaults. */
+/** Full export → import through ContentResolver with the production KDF cost, between two vaults with different keys. */
 @RunWith(AndroidJUnit4::class)
 class BackupInstrumentedTest {
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -36,9 +34,7 @@ class BackupInstrumentedTest {
         file.delete()
     }
 
-    private fun vault(name: String) = VaultDatabase.build(
-        context, name, SqlCipherSupport.factory(VaultKeyManager.toSqlCipherRawKey(ByteArray(32).also(SecureRandom()::nextBytes))),
-    )
+    private fun vault(name: String) = VaultDatabase.build(context, name, FieldCipher.random())
 
     @Test
     fun exportImport_throughContentResolver() = runBlocking {

@@ -15,6 +15,17 @@ is listed under [Not tested](#not-tested). All message content used for testing 
 
 The request mentioned a Pixel 6 Pro; the connected device reports itself as a Pixel 6 (`oriole`).
 
+> **Note (storage change after these results).** SQLCipher was removed after the results below were recorded and
+> replaced by field-level encryption on the framework SQLite (schema v3; see CHANGELOG "Unreleased" and
+> IMPLEMENTATION_PLAN sections 8-9). The recorded results are left unchanged. Items that now differ: the instrumented
+> SQLCipher tests (migration on SQLCipher, "no `SQLite format 3` header", wrong key fails to open) no longer exist; they
+> were replaced by `FieldEncryptionDeviceTest` (no plaintext in db/-wal/-shm, WAL active, reopen with the Keystore) and
+> by 1→2→3 and 2→3 `MigrationTestHelper` runs. Search no longer uses FTS + LIKE but decrypts and matches rows. The
+> database file now *does* start with `SQLite format 3` (only the content columns are encrypted). The release smoke
+> test's "SQLCipher DB" line, the cold-start time and the APK size were measured with SQLCipher and need re-measuring.
+> A 1.0.15 archive is not migrated (it is replaced by an empty vault with a notice). The device runs of the new tests
+> are pending.
+
 ## Automated tests
 
 | Suite | Where | Result |

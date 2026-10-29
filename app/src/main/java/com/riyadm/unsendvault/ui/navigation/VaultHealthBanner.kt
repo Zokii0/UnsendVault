@@ -31,34 +31,58 @@ import kotlinx.coroutines.launch
 
 /**
  * Shown above every screen when the encrypted archive cannot be opened (Keystore key lost, corrupt key file, or a
- * transient Keystore error). Reset is destructive and always confirmed.
+ * transient Keystore error), and once after an update that had to remove an archive from version 1.0.15 (its format
+ * can no longer be read) until the user dismisses that notice. Reset is destructive and always confirmed.
  */
 @Composable
 fun VaultHealthBanner(health: VaultHealth?, modifier: Modifier = Modifier) {
     if (health == null) return
     val state by health.keyState.collectAsStateWithLifecycle()
-    val unavailable = state as? VaultKeyState.Unavailable ?: return
+    val legacyDiscarded by health.legacyArchiveDiscarded.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var confirmReset by remember { mutableStateOf(false) }
+    val unavailable = state as? VaultKeyState.Unavailable
+    if (unavailable == null && !legacyDiscarded) return
 
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        ),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.vault_unavailable_title), style = MaterialTheme.typography.titleMedium)
-            Text(
-                stringResource(if (unavailable.retryable) R.string.vault_unavailable_transient else R.string.vault_unavailable_lost),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (unavailable.retryable) {
-                    TextButton(onClick = { scope.launch { health.retryOpen() } }) { Text(stringResource(R.string.vault_retry)) }
+    Column(modifier) {
+        if (legacyDiscarded) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.vault_legacy_discarded_title), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.vault_legacy_discarded_body), style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { scope.launch { health.dismissLegacyArchiveNotice() } }) {
+                        Text(stringResource(R.string.vault_legacy_discarded_dismiss))
+                    }
                 }
-                TextButton(onClick = { confirmReset = true }) { Text(stringResource(R.string.vault_reset)) }
+            }
+        }
+        if (unavailable != null) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                ),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.vault_unavailable_title), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(if (unavailable.retryable) R.string.vault_unavailable_transient else R.string.vault_unavailable_lost),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (unavailable.retryable) {
+                            TextButton(onClick = { scope.launch { health.retryOpen() } }) { Text(stringResource(R.string.vault_retry)) }
+                        }
+                        TextButton(onClick = { confirmReset = true }) { Text(stringResource(R.string.vault_reset)) }
+                    }
+                }
             }
         }
     }

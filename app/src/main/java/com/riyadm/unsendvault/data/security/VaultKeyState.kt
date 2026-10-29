@@ -30,7 +30,10 @@ sealed interface VaultKeyState {
         /** The Keystore failed in a way that may be temporary. Retried automatically after a cooldown. */
         KEYSTORE_ERROR,
 
-        /** The key unwrapped fine but SQLCipher could not open the file (wrong key or a corrupted database). */
+        /**
+         * The key unwrapped fine but the database could not be opened: the file is corrupt, it was encrypted with a
+         * different key (key-check mismatch), or a schema migration failed.
+         */
         DATABASE_UNREADABLE,
     }
 }
@@ -57,4 +60,14 @@ interface VaultHealth {
      * then creates a fresh empty vault. Only call after explicit user confirmation.
      */
     suspend fun resetVault(): VaultKeyState
+
+    /**
+     * True once the vault found an archive written by version 1.0.15 (a SQLCipher database, which this version can no
+     * longer read) and removed it while creating the new vault. Stays true across restarts until
+     * [dismissLegacyArchiveNotice] so the user sees the notice at least once.
+     */
+    val legacyArchiveDiscarded: StateFlow<Boolean>
+
+    /** The user has read the legacy-archive notice; hide it for good. */
+    suspend fun dismissLegacyArchiveNotice()
 }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.sync.withLock
  *
  * @param opener builds and force-opens the database (throws [VaultKeyException] on key/open problems).
  * @param destroyer deletes database files and key material (used only by [resetVault]).
+ * @param legacyNotice the one-time "1.0.15 archive discarded" notice; the opener raises it.
  */
 class VaultDatabaseHolder(
     private val opener: suspend () -> VaultDatabase,
@@ -23,6 +24,7 @@ class VaultDatabaseHolder(
     private val clock: () -> Long = System::currentTimeMillis,
     private val retryCooldownMs: Long = 30_000,
     private val closeOnReset: Boolean = true,
+    private val legacyNotice: LegacyArchiveNotice = LegacyArchiveNotice(null),
 ) : VaultHealth {
     private val mutex = Mutex()
     private val current = MutableStateFlow<VaultDatabase?>(null)
@@ -30,6 +32,10 @@ class VaultDatabaseHolder(
     private var lastAttemptAt = 0L
 
     override val keyState: StateFlow<VaultKeyState> = state.asStateFlow()
+
+    override val legacyArchiveDiscarded: StateFlow<Boolean> = legacyNotice.pending
+
+    override suspend fun dismissLegacyArchiveNotice() = legacyNotice.dismiss()
 
     /** The open database, or null while the vault is unavailable (see [keyState]). */
     suspend fun database(): VaultDatabase? {

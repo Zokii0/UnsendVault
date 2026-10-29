@@ -8,6 +8,7 @@ import com.riyadm.unsendvault.capture.ParsedNotification
 import com.riyadm.unsendvault.core.model.ContentKind
 import com.riyadm.unsendvault.data.db.VaultDatabase
 import com.riyadm.unsendvault.data.repo.RoomVaultRepository
+import com.riyadm.unsendvault.data.security.FieldCipher
 import org.junit.After
 import org.junit.Before
 
@@ -41,7 +42,7 @@ object Fx {
         DeletionMarker(pkg, key, sender, text, "testadapter", ts)
 }
 
-/** In-memory Room database on the framework (Robolectric) SQLite. */
+/** In-memory Room database on the framework (Robolectric) SQLite, with a random field-encryption key. */
 abstract class RoomTestBase {
     protected lateinit var context: Context
     protected lateinit var db: VaultDatabase
@@ -50,7 +51,7 @@ abstract class RoomTestBase {
     @Before
     fun openDb() {
         context = ApplicationProvider.getApplicationContext()
-        db = VaultDatabase.build(context, name = null, factory = null, allowMainThreadQueries = true)
+        db = VaultDatabase.build(context, name = null, cipher = FieldCipher.random(), allowMainThreadQueries = true)
         repo = RoomVaultRepository(db)
     }
 

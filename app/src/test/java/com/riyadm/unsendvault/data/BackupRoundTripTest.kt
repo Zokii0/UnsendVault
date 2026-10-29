@@ -16,6 +16,7 @@ import com.riyadm.unsendvault.data.backup.BackupManagerImpl
 import com.riyadm.unsendvault.data.db.VaultDatabase
 import com.riyadm.unsendvault.data.fake.InMemorySettingsRepository
 import com.riyadm.unsendvault.data.repo.RoomVaultRepository
+import com.riyadm.unsendvault.data.security.FieldCipher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -71,7 +72,7 @@ class BackupRoundTripTest : RoomTestBase() {
         assertFalse(String(bytes, Charsets.ISO_8859_1).contains("edited"))
 
         // Import into a second, empty vault.
-        val db2 = VaultDatabase.build(context, null, null, allowMainThreadQueries = true)
+        val db2 = VaultDatabase.build(context, null, FieldCipher.random(), allowMainThreadQueries = true)
         try {
             val repo2 = RoomVaultRepository(db2)
             assertEquals(BackupResult.Success(3, 2), manager(repo2).import(uri, "pw-1234".toCharArray(), ImportMode.MERGE))
@@ -110,7 +111,7 @@ class BackupRoundTripTest : RoomTestBase() {
         val uri = Uri.fromFile(File(tmp.root, "b.uvb"))
         manager(repo).export(uri, "pw".toCharArray())
 
-        val db2 = VaultDatabase.build(context, null, null, allowMainThreadQueries = true)
+        val db2 = VaultDatabase.build(context, null, FieldCipher.random(), allowMainThreadQueries = true)
         try {
             val repo2 = RoomVaultRepository(db2)
             repo2.ingest(parsed(msg("original")), T0)
