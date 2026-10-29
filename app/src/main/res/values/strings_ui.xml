@@ -426,4 +426,13 @@
     </string-array>
     <string name="about_licenses_title">Open-source licenses</string>
     <string name="about_trademarks">App names are trademarks of their respective owners and are used only to identify the apps a notification came from.</string>
+    <!-- Vault health (encrypted archive could not be opened) -->
+    <string name="vault_unavailable_title">Archive can\'t be opened</string>
+    <string name="vault_unavailable_transient">Android\'s secure key storage didn\'t respond. UnsendVault will retry automatically; nothing has been deleted.</string>
+    <string name="vault_unavailable_lost">The key that protects your archive is no longer available on this device (for example after secure storage was reset). The old archive can\'t be decrypted. If you have an encrypted export, you can reset and import it.</string>
+    <string name="vault_retry">Retry</string>
+    <string name="vault_reset">Reset archive</string>
+    <string name="vault_reset_confirm_title">Reset the archive?</string>
+    <string name="vault_reset_confirm_body">This permanently deletes the unreadable archive on this device and starts a new, empty encrypted archive. Encrypted exports are not affected.</string>
+    <string name="vault_reset_confirm_action">Reset</string>
 </resources>

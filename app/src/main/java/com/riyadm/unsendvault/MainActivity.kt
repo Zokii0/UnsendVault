@@ -1,5 +1,6 @@
 package com.riyadm.unsendvault
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.WindowManager
@@ -21,6 +22,7 @@ import com.riyadm.unsendvault.security.lock.LocalLockAuthenticator
 import com.riyadm.unsendvault.security.lock.LockGate
 import com.riyadm.unsendvault.security.lock.LockState
 import com.riyadm.unsendvault.ui.common.LocalExternalActivityGuard
+import com.riyadm.unsendvault.ui.navigation.DeepLinks
 import com.riyadm.unsendvault.ui.navigation.UnsendVaultAppUi
 import com.riyadm.unsendvault.ui.theme.AppearanceSettings
 import com.riyadm.unsendvault.ui.theme.UnsendVaultTheme
@@ -44,6 +46,7 @@ class MainActivity : FragmentActivity() {
         val container = appContainer
         lockManager = AppLockManager.get(this)
         authenticator = BiometricLockAuthenticator(this)
+        if (savedInstanceState == null) DeepLinks.offer(intent)
 
         setContent {
             val settings by container.settingsRepository.settings.collectAsStateWithLifecycle<VaultSettings?>(initialValue = null)
@@ -76,6 +79,12 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        DeepLinks.offer(intent)
     }
 
     private fun setSecure(secure: Boolean) {

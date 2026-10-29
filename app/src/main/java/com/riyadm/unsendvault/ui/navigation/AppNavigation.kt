@@ -73,6 +73,12 @@ import com.riyadm.unsendvault.ui.settings.SettingsViewModel
 import com.riyadm.unsendvault.di.AppContainer
 import androidx.compose.ui.platform.LocalContext
 import com.riyadm.unsendvault.appContainer
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.riyadm.unsendvault.data.repo.vaultHealth
+import com.riyadm.unsendvault.ui.common.appDetailsIntent
+import com.riyadm.unsendvault.ui.common.startFirstAvailable
 import kotlinx.serialization.Serializable
 
 @Serializable data object HomeDest
@@ -120,6 +126,21 @@ private fun MainScaffold(widthSizeClass: WindowWidthSizeClass, onLockNow: () -> 
         showBottomBar -> base.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
         else -> base
     }
+    val context = LocalContext.current
+    val pendingLink by DeepLinks.requests.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingLink) {
+        val link = pendingLink ?: return@LaunchedEffect
+        DeepLinks.consume(link)
+        when (link) {
+            DeepLink.Home -> navController.navigateTopLevel(TopLevel.HOME)
+            DeepLink.Favorites -> navController.navigateTopLevel(TopLevel.FAVORITES)
+            is DeepLink.Message -> navController.navigate(MessageDest(link.id)) { launchSingleTop = true }
+            DeepLink.NotificationAccess -> context.startFirstAvailable(
+                context.appContainer.listenerStatus.accessSettingsIntent(),
+                context.appDetailsIntent(),
+            )
+        }
+    }
     Row(Modifier.fillMaxSize()) {
         if (useRail) {
             NavigationRail {
@@ -135,6 +156,10 @@ private fun MainScaffold(widthSizeClass: WindowWidthSizeClass, onLockNow: () -> 
             }
         }
         Column(Modifier.weight(1f)) {
+            VaultHealthBanner(
+                health = context.appContainer.vaultRepository.vaultHealth,
+                modifier = Modifier.windowInsetsPadding(screenInsets.only(WindowInsetsSides.Top)),
+            )
             Box(Modifier.weight(1f)) {
                 CompositionLocalProvider(LocalScreenInsets provides screenInsets) {
                     AppNavHost(navController, isWide = useRail, onLockNow = onLockNow)
