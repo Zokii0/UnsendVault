@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared strings. Each layer keeps its own file: strings_capture.xml, strings_ui.xml, strings_widget.xml. -->
+<resources>
+    <string name="listener_service_label">UnsendVault message archive</string>
+</resources>
