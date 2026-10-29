@@ -40,6 +40,17 @@ advisory is published, and you are credited if you wish.
   unlocked phone with the app lock off.
 - Weak export passwords chosen by the user.
 
+## What the archive encryption protects
+
+Message text, sender names, conversation titles and keys, edit history and deletion markers are encrypted per field
+(AES-256-GCM) with keys derived from a secret that only the Android Keystore can unwrap. This protects that content
+if the database file is copied off the phone (for example a forensic or root-level file copy) without being able to
+run code as UnsendVault. It does **not** protect against code running as the app, or a rooted attacker who uses the
+Keystore key while the phone is unlocked. App names, package names, timestamps, flags and message counts are stored
+without app-level encryption; Android's file-based encryption still protects all app storage at rest. Reports that
+show content readable from a copied database file, or ciphertext that can be moved between rows or columns without
+detection, are in scope.
+
 ## Supported versions
 
 Only the [latest release](https://github.com/riyadmondol2006/UnsendVault/releases/latest) receives fixes.

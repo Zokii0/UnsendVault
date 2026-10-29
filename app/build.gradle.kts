@@ -220,7 +220,6 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.sqlite)
-    implementation(libs.sqlcipher.android)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.biometric)
     // MainActivity is a FragmentActivity (BiometricPrompt) that also uses ActivityResult APIs (SAF backup pickers).

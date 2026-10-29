@@ -13,7 +13,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * AES-256-GCM key in AndroidKeyStore that wraps the database passphrase.
+ * AES-256-GCM key in AndroidKeyStore that wraps the vault's root secret (see [VaultKeyManager]). It is used once per
+ * process to unwrap that secret; field encryption itself runs in software with keys derived from it ([FieldCipher]).
  *
  * - No user-authentication requirement and no unlocked-device requirement: the notification listener must be able to
  *   open the vault while the screen is locked (after the first unlock since boot, when credential-encrypted storage is

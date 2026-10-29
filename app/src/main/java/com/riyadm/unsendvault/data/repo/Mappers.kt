@@ -14,6 +14,8 @@ import com.riyadm.unsendvault.data.db.ConversationEntity
 import com.riyadm.unsendvault.data.db.MessageRevisionEntity
 import com.riyadm.unsendvault.data.db.MessageRow
 import com.riyadm.unsendvault.data.db.StatsRow
+import com.riyadm.unsendvault.data.security.FieldCipher
+import com.riyadm.unsendvault.data.security.FieldCipher.Field
 
 internal fun contentKindOf(name: String?): ContentKind =
     ContentKind.entries.firstOrNull { it.name == name } ?: ContentKind.TEXT
@@ -28,22 +30,41 @@ internal fun removalReasonOf(name: String?): RemovalReason? =
 internal fun ContentKind.isWithheld(): Boolean =
     this == ContentKind.SYSTEM_REDACTED || this == ContentKind.FILTERED_SENSITIVE
 
-internal fun ConversationEntity.toDomain() = Conversation(
-    id = id,
-    packageName = packageName,
-    appLabel = appLabel,
-    conversationKey = conversationKey,
-    title = title,
-    isGroup = isGroup,
-    lastMessageAt = lastMessageAt,
-    messageCount = messageCount,
-    lastMessagePreview = lastMessagePreview,
-)
+internal fun ConversationEntity.binding(): String = FieldCipher.forConversation(packageName, conversationIndex)
 
-internal fun MessageRow.toDomain(): ArchivedMessage {
+internal fun ConversationEntity.toDomain(cipher: FieldCipher): Conversation {
+    val owner = binding()
+    return Conversation(
+        id = id,
+        packageName = packageName,
+        appLabel = appLabel,
+        conversationKey = cipher.decrypt(conversationKey, Field.CONVERSATION_KEY, owner),
+        title = cipher.decrypt(title, Field.CONVERSATION_TITLE, owner),
+        isGroup = isGroup,
+        lastMessageAt = lastMessageAt,
+        messageCount = messageCount,
+        lastMessagePreview = cipher.decryptNullable(lastMessagePreview, Field.CONVERSATION_PREVIEW, owner),
+    )
+}
+
+internal fun MessageRow.decryptTitle(cipher: FieldCipher): String =
+    cipher.decrypt(conversationTitle, Field.CONVERSATION_TITLE, FieldCipher.forConversation(message.packageName, conversationIndex))
+
+/**
+ * Decrypts a joined row. Values the caller already decrypted (search) are passed in so no field is decrypted twice.
+ */
+internal fun MessageRow.toDomain(
+    cipher: FieldCipher,
+    text: String? = null,
+    sender: String? = null,
+    senderKnown: Boolean = false,
+    title: String? = null,
+): ArchivedMessage {
     val m = message
-    val evidence = if (m.deletionAdapterId != null && m.deletionMarkerText != null && m.deletionObservedAt != null) {
-        DeletionEvidence(m.deletionAdapterId, m.deletionMarkerText, m.deletionObservedAt)
+    val owner = FieldCipher.forMessage(m.conversationId)
+    val marker = m.deletionMarkerText
+    val evidence = if (m.deletionAdapterId != null && marker != null && m.deletionObservedAt != null) {
+        DeletionEvidence(m.deletionAdapterId, cipher.decrypt(marker, Field.MESSAGE_MARKER, owner), m.deletionObservedAt)
     } else {
         null
     }
@@ -52,9 +73,9 @@ internal fun MessageRow.toDomain(): ArchivedMessage {
         conversationId = m.conversationId,
         packageName = m.packageName,
         appLabel = appLabel,
-        conversationTitle = conversationTitle,
-        sender = m.sender,
-        text = m.text,
+        conversationTitle = title ?: decryptTitle(cipher),
+        sender = if (senderKnown) sender else cipher.decryptNullable(m.sender, Field.MESSAGE_SENDER, owner),
+        text = text ?: cipher.decrypt(m.text, Field.MESSAGE_TEXT, owner),
         contentKind = contentKindOf(m.contentKind),
         messageTimestamp = m.messageTimestamp,
         firstCapturedAt = m.firstCapturedAt,
@@ -68,7 +89,12 @@ internal fun MessageRow.toDomain(): ArchivedMessage {
     )
 }
 
-internal fun MessageRevisionEntity.toDomain() = MessageRevision(id = id, messageId = messageId, text = text, capturedAt = capturedAt)
+internal fun MessageRevisionEntity.toDomain(cipher: FieldCipher) = MessageRevision(
+    id = id,
+    messageId = messageId,
+    text = cipher.decrypt(text, Field.REVISION_TEXT, FieldCipher.forRevision(messageId)),
+    capturedAt = capturedAt,
+)
 
 internal fun AppSummaryRow.toDomain() = AppSummary(
     packageName = packageName,

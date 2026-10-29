@@ -11,10 +11,6 @@
 }
 -keep,includedescriptorclasses class com.riyadm.unsendvault.**$$serializer { *; }
 
-# SQLCipher uses JNI callbacks into these classes.
--keep class net.zetetic.database.** { *; }
--dontwarn net.zetetic.database.**
-
 # Readable stack traces without shipping source file names.
 -keepattributes SourceFile, LineNumberTable
 -renamesourcefileattribute SourceFile

@@ -110,7 +110,7 @@
     <string name="onboarding_privacy_body">Your archive never leaves this device unless you export it yourself.</string>
     <string-array name="onboarding_privacy_points">
         <item>Fully offline: the app has no internet permission at all.</item>
-        <item>The archive is stored in an encrypted database whose key is protected by the Android Keystore.</item>
+        <item>Message text, names and conversation titles are encrypted with a key protected by the Android Keystore.</item>
         <item>One-time codes and other sensitive text are filtered out before saving (you can change this).</item>
         <item>Exclude apps, auto-delete old messages, or delete everything at any time.</item>
     </string-array>
@@ -421,7 +421,7 @@
     <string name="about_privacy_title">Privacy</string>
     <string-array name="about_privacy">
         <item>No internet permission: nothing is uploaded, no analytics, no ads.</item>
-        <item>The archive is encrypted on the device with a key held by the Android Keystore.</item>
+        <item>Message text, names and conversation titles are encrypted on the device with a key protected by the Android Keystore. App names, times and message counts are not encrypted, but stay in this app\'s private storage.</item>
         <item>Android cloud backup is disabled; encrypted exports are created only when you ask.</item>
     </string-array>
     <string name="about_licenses_title">Open-source licenses</string>
@@ -435,4 +435,8 @@
     <string name="vault_reset_confirm_title">Reset the archive?</string>
     <string name="vault_reset_confirm_body">This permanently deletes the unreadable archive on this device and starts a new, empty encrypted archive. Encrypted exports are not affected.</string>
     <string name="vault_reset_confirm_action">Reset</string>
+    <!-- One-time notice after updating from 1.0.15, whose archive format this version can no longer read -->
+    <string name="vault_legacy_discarded_title">Your previous archive was removed</string>
+    <string name="vault_legacy_discarded_body">The archive from version 1.0.15 used a format this version can\'t read, so a new, empty archive was started. If you exported a backup, import it now (Settings, Backup).</string>
+    <string name="vault_legacy_discarded_dismiss">Got it</string>
 </resources>

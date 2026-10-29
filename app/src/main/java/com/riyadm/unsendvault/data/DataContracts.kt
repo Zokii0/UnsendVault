@@ -13,7 +13,7 @@ import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.core.model.VaultStats
 import kotlinx.coroutines.flow.Flow
 
-/** Single source of truth for archived messages. Implemented on Room + SQLCipher. */
+/** Single source of truth for archived messages. Implemented on Room with field-level encryption (see data/security/FieldCipher). */
 interface VaultRepository {
     fun observeMessages(query: MessageQuery): Flow<List<ArchivedMessage>>
     fun observeConversations(packages: Set<String> = emptySet()): Flow<List<Conversation>>

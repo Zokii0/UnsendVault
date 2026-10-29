@@ -13,7 +13,7 @@ the two disagree: the domain contracts in `core/model/Models.kt`, `capture/Captu
 | Platform | minSdk 26, target/compileSdk 37, Kotlin 2.4, AGP 9.5, Gradle 9.8, JDK 17 bytecode |
 | UI | Jetpack Compose, Material 3 (dynamic color on 31+, optional AMOLED black), single activity, Navigation Compose |
 | Architecture | MVVM, unidirectional data flow, Kotlin coroutines and Flow, manual DI (`AppContainer`, all lazy) |
-| Storage | Room on SQLCipher (`net.zetetic:sqlcipher-android`), DataStore Preferences for settings |
+| Storage | Room on the framework SQLite with field-level encryption (AES-256-GCM per field, HMAC blind indexes), DataStore Preferences for settings |
 | Background | NotificationListenerService only; WorkManager for the daily retention job; Glance for widgets |
 | Network | None. No `INTERNET`; build fails on any permission outside the allowlist (`verifyPermissions<Variant>`) |
 | Backup | `allowBackup=false`, data extraction rules exclude everything; encrypted export via the Storage Access Framework is the only backup path |
@@ -35,8 +35,8 @@ com.riyadm.unsendvault
 │   ├── filter/                        OTP / sensitive-content filter, system-redaction detection
 │   └── ListenerStatus                 access granted?, connected StateFlow, requestRebind, settings intent
 ├── data                               repositories behind the contracts in DataContracts.kt
-│   ├── db/                            Room entities, DAO, VaultDatabase, migrations, FTS
-│   ├── security/                      DB key generation, Android Keystore wrapping, SQLCipher open
+│   ├── db/                            Room entities, DAO, VaultDatabase, migrations
+│   ├── security/                      root secret, Keystore wrapping, HKDF, FieldCipher, legacy archive
 │   ├── repo/                          RoomVaultRepository (ingest algorithm, queries, deletion)
 │   ├── settings/                      DataStore-backed SettingsRepository with a synchronous `current` snapshot
 │   ├── backup/                        encrypted export/import (format below)
@@ -133,9 +133,9 @@ flowchart TD
     end
     subgraph DATA["Data"]
         REPO["VaultRepository.ingest"]
-        DB[("Room on SQLCipher<br/>conversations, messages,<br/>message_revisions, messages_fts")]
+        DB[("Room, encrypted fields<br/>conversations, messages,<br/>message_revisions, vault_meta")]
         DS[("DataStore<br/>settings")]
-        KS["Android Keystore<br/>wraps DB key"]
+        KS["Android Keystore<br/>wraps root secret"]
         RET["Retention worker,<br/>daily"]
     end
     subgraph PRESENT["Presentation"]
@@ -242,6 +242,10 @@ Notes:
 - `last_notification_key` is stored per message so a later removal event can be attributed.
 - Indexes: `(conversation_id, sender_key, message_timestamp)` and `(conversation_id, sender_key, normalized_text)`
   keep both lookups indexed.
+- Since schema v3 the stored columns are blind indexes (`sender_index`, `text_index`, `last_notification_index`,
+  `conversations.conversation_index`): keyed HMACs of exactly the values named above (`senderKey`, the normalized
+  text, the notification key, the conversation key). Equal plaintext gives an equal index, so every comparison in this
+  section is unchanged; only its operands are HMACs instead of plaintext.
 
 ## 7. Deletion-evidence rules
 
@@ -266,33 +270,71 @@ notification key. **Removal never changes status**, whatever the reason.
 
 ## 8. Database schema
 
-Room database `VaultDatabase`, encrypted with SQLCipher. Version 2 is current; `app/schemas/` holds the exported JSON
-for each version and is used by migration tests.
+Room database `VaultDatabase` (file `vault-v3.db`) on the framework SQLite, WAL journal. Version 3 is current;
+`app/schemas/` holds the exported JSON for each version and is used by migration tests. Since v3 content columns are
+encrypted per field (see section 9); `enc` below marks an AES-256-GCM BLOB, `idx` a blind index (22-character
+base64url of a truncated HMAC-SHA256).
 
 | Table | Purpose | Key columns |
 |---|---|---|
-| `conversations` | one chat/thread per source app | `id`, `package_name`, `conversation_key` (unique together), `app_label`, `title`, `is_group`, `created_at`, `last_message_at`, `last_message_preview`, `message_count` |
-| `messages` | one archived message | `id`, `conversation_id` (FK, cascade), `package_name`, `sender`, `sender_key`, `text`, `normalized_text`, `content_kind`, `message_timestamp`, `has_precise_timestamp`, `first_captured_at`, `last_updated_at`, `is_favorite`, `status`, `deletion_adapter_id`, `deletion_marker_text`, `deletion_observed_at`, `revision_count`, `last_notification_key`, `last_removal_reason`, `last_removed_at` |
-| `message_revisions` | previous text versions | `id`, `message_id` (FK, cascade), `text`, `content_kind`, `captured_at` |
-| `messages_fts` | full-text search | FTS4 external-content table over `messages(text, sender)`, `unicode61` tokenizer, kept in sync by triggers |
+| `conversations` | one chat/thread per source app | `id`, `package_name`, `conversation_index` idx (unique together), `conversation_key` enc, `app_label`, `title` enc, `is_group`, `created_at`, `last_message_at`, `last_message_preview` enc, `message_count` |
+| `messages` | one archived message | `id`, `conversation_id` (FK, cascade), `package_name`, `sender` enc, `sender_index` idx, `text` enc, `text_index` idx, `content_kind`, `message_timestamp`, `has_precise_timestamp`, `first_captured_at`, `last_updated_at`, `is_favorite`, `status`, `deletion_adapter_id`, `deletion_marker_text` enc, `deletion_observed_at`, `revision_count`, `last_notification_index` idx, `last_removal_reason`, `last_removed_at` |
+| `message_revisions` | previous text versions | `id`, `message_id` (FK, cascade), `text` enc, `content_kind`, `captured_at` |
+| `vault_meta` | key/value | `key_check`: an encrypted constant that detects a database encrypted under a different key |
 
-Indexes on `messages`: `(conversation_id, message_timestamp)`, `(package_name, message_timestamp)`, `is_favorite`,
-`status`, the two dedupe indexes in section 6, and `last_notification_key`. `conversations`: unique
-`(package_name, conversation_key)` and `last_message_at`.
+Indexes on `messages`: `(conversation_id, message_timestamp)`, `(package_name, message_timestamp)`,
+`message_timestamp` (new in v3, for newest-first scans), `is_favorite`, `status`,
+`(conversation_id, sender_index, message_timestamp)`, `(conversation_id, sender_index, text_index)` (the dedupe
+lookups of section 6), and `last_notification_index`. `conversations`: unique `(package_name, conversation_index)` and
+`last_message_at`.
 
 **Migration 1 -> 2** (additive, no data loss): adds `last_notification_key`, `last_removal_reason`,
 `last_removed_at` to `messages` with an index on `last_notification_key`; creates the `messages_fts` virtual table and
 its sync triggers; rebuilds the FTS index from existing rows (`INSERT INTO messages_fts(messages_fts) VALUES
 ('rebuild')`). No destructive fallback is configured: a missing migration must fail tests, not wipe the archive.
 
+**Migration 2 -> 3** (`Migration2To3`, constructed with the vault's `FieldCipher`; one transaction): drops
+`messages_fts` and its four triggers; renames the v2 tables to `*_v2`; creates the v3 tables; copies every row with the
+same ids, encrypting the content columns and replacing `conversation_key`, `sender_key`, `normalized_text` and
+`last_notification_key` by blind indexes of their **stored** values (so identity matching sees the same equalities);
+drops the v2 tables, creates the v3 indexes and stores the key check. Room validates the result against `3.json`.
+This path exists for plaintext v2 databases (development builds); see "Legacy archive" below for 1.0.15.
+
+**Legacy archive (1.0.15).** Release 1.0.15 stored `unsendvault.db` with SQLCipher, which this version cannot read.
+On open, `LegacyArchive` checks that file's first 16 bytes: if they are not `SQLite format 3\0`, the file and its
+-wal/-shm/-journal are renamed aside and deleted, the wrapped key file is kept (the new vault derives its keys from the
+same root secret), a new `vault-v3.db` is created, and a one-time notice (persisted as a marker file until dismissed)
+tells the user to import a backup if they made one. A plain SQLite `unsendvault.db` is instead renamed to
+`vault-v3.db` and migrated.
+
+**Search.** There is no plaintext index to query (an FTS table would store every word in clear), so `MessageSearch`:
+1. runs the non-text filters (apps, conversation, inclusive date range, favorites, possibly deleted) in SQL, newest
+   first, in pages of 400 rows using keyset pagination on `(message_timestamp, id)` and a lean projection (id,
+   conversation, timestamp, sender index, encrypted text and sender; no join);
+2. decrypts and folds each text (NFD, `Locale.ROOT` lowercase, combining accents U+0300-U+036F and zero-width
+   characters removed); only when a term is still missing, the sender (folded value cached per `sender_index`) and the
+   conversation title (cached per conversation);
+3. keeps rows where every query term (letter/digit runs of the folded query; the raw tokens if it has none) is a
+   substring of the text, sender or title; stops at the query limit, at the end of the prefilter, or after 50,000
+   scanned rows; then loads the full rows of the matches only and maps them with the values already decrypted.
+The result is a Flow re-run (conflated) whenever `messages` or `conversations` change; queries without text are a
+single SQL query plus decryption of the returned rows.
+
+Measured (JVM, Robolectric's native SQLite, development machine under heavy shared load; `SearchScanTest`): a
+no-match search over 20,000 messages (every row scanned) takes about 160-230 ms; decrypt + fold alone is about 26 ms of
+that, the rest is SQLite paging. A frequent word (500 hits after scanning 5,000 rows) about 45 ms; a 500-row list
+without text about 3-7 ms. Phones are expected to be several times slower; the 50,000-row cap bounds the worst case.
+Matches older than the newest 50,000 prefiltered rows are not found unless the user narrows by app, conversation or
+date.
+
 ## 9. Security model
 
-**Assets**: archived message text (other people's words), conversation names, settings, the DB key, backup files.
+**Assets**: archived message text (other people's words), conversation names, settings, the vault root secret, backup files.
 
 | Control | Implementation |
 |---|---|
-| Encryption at rest | SQLCipher database. A random 32-byte passphrase is generated once, wrapped with a hardware-backed (TEE) AES-256-GCM key in the Android Keystore. StrongBox is deliberately not used: on the reference Pixel 6 / Android 17 a StrongBox key generated fine but every decrypt failed with Keymaster `TOO_MANY_OPERATIONS` (5/5 runs, see TEST_REPORT.md), and the listener needs the key to be reliably available. Only the wrapped form is stored in app-private storage. |
-| No cloud copy | `allowBackup=false`, `fullBackupContent=false`, data extraction rules exclude all domains for cloud backup and device transfer. The Keystore key cannot leave the device, so a copied DB would be unreadable anyway. |
+| Encryption at rest | Field-level encryption (no SQLCipher since schema v3). A random 32-byte root secret is generated once, wrapped with a hardware-backed (TEE) AES-256-GCM key in the Android Keystore and unwrapped once per process; HKDF-SHA256 (info `uv-field-enc-v1` / `uv-blind-index-v1`) derives an AES-256 field key and an HMAC-SHA256 blind-index key held in memory, so each field costs software AES-GCM, never a Keystore call. Each value is `version, 12-byte random nonce, ciphertext + tag`, with AAD binding the column and the row's owner (conversation, message, or conversation identity), so ciphertexts can't be moved between columns or conversations. Encrypted: message text, sender, deletion-marker text, revision text, conversation title, key and preview. Not encrypted (accepted): package names, app labels, timestamps, flags, status, content kind, counts, removal reasons; blind indexes reveal which rows hold equal values. Android's file-based encryption still covers all app storage. A key check in `vault_meta` turns a wrong key into a clear `KEY_LOST` state instead of unreadable rows; a damaged value shows a placeholder instead of crashing. StrongBox is deliberately not used: on the reference Pixel 6 / Android 17 a StrongBox key generated fine but every decrypt failed with Keymaster `TOO_MANY_OPERATIONS` (5/5 runs, see TEST_REPORT.md), and the listener needs the key to be reliably available. Only the wrapped form is stored in app-private storage. |
+| No cloud copy | `allowBackup=false`, `fullBackupContent=false`, data extraction rules exclude all domains for cloud backup and device transfer. The Keystore key cannot leave the device, so the encrypted fields of a copied DB would be unreadable anyway. |
 | Key loss | If the Keystore key is gone (device reset, OEM Keystore bug), the app detects `KEY_LOST`, explains it, and offers to start a new empty archive or import an encrypted export. It never silently deletes. |
 | Encrypted export | Format v1: 45-byte header (`UVB` magic, format version, KDF id, PBKDF2-HMAC-SHA256 iteration count, creation time, 16-byte salt, 12-byte GCM nonce) followed by AES-256-GCM ciphertext of a gzipped JSON payload. The whole header is the GCM AAD, so any header change fails authentication. Wrong password and tampering are indistinguishable by design. Written only through SAF to a location the user picks. |
 | App lock | `BiometricPrompt` with `BIOMETRIC_STRONG or DEVICE_CREDENTIAL` on API 30+, `BIOMETRIC_WEAK or DEVICE_CREDENTIAL` on 28-29 (combination not supported for STRONG there), `KeyguardManager.createConfirmDeviceCredentialIntent` on 26-27. Relock after the configured background timeout (0 = immediately). |
@@ -306,7 +348,8 @@ its sync triggers; rebuilds the FTS index from existing rows (`INSERT INTO messa
 
 | Threat | In scope? | Mitigation / residual risk |
 |---|---|---|
-| Another app on the device reads the archive | Yes | App-private storage, encrypted DB, no exported providers. |
+| Another app on the device reads the archive | Yes | App-private storage, encrypted content fields, no exported providers. |
+| The database file is copied off the device (forensic or root file copy, leaked file) without running as the app | Yes | Content fields are AES-256-GCM under a Keystore-protected key. Metadata (apps, times, counts, flags) and equality between indexed values remain visible. |
 | Someone picks up the unlocked phone | Yes | App lock with relock timeout; widgets counts-only while locked. |
 | Shoulder surfing, screenshots, Recents thumbnails | Yes | FLAG_SECURE option; widget content off by default. |
 | Cloud backup or device-to-device transfer leaks the DB | Yes | Disabled; key is device-bound. |
@@ -315,7 +358,7 @@ its sync triggers; rebuilds the FTS index from existing rows (`INSERT INTO messa
 | Malicious notification content (very long text, bidi control characters, markup) | Yes | Length caps at capture, text rendered as plain text, bidi overrides stripped in widgets. |
 | Network exfiltration by a dependency | Yes | No INTERNET permission at all; build and release checks. |
 | Tampered release APK | Yes | Signed releases, published SHA-256 and certificate fingerprint. |
-| Rooted device, malware with root, forensic extraction of a running unlocked device | No | Out of scope; Keystore and SQLCipher raise the cost. |
+| Rooted device, malware with root, forensic extraction of a running unlocked device; code running as the app | No | Out of scope: such an attacker can ask the Keystore to unwrap the root secret or read decrypted data in memory. The Keystore raises the cost of extracting the key itself. |
 | The phone's owner misusing the archive | Partly | Product design and documentation (see PRODUCT_RESEARCH.md section 6); not technically preventable. |
 
 ## 10. Retention
@@ -325,7 +368,7 @@ its sync triggers; rebuilds the FTS index from existing rows (`INSERT INTO messa
 - `RetentionScheduler.schedule(days)` enqueues a unique periodic WorkManager job, 24 h period, constraints
   battery-not-low and device-idle, policy `UPDATE` (existing schedule kept); `days == 0` cancels it.
 - Deleting messages also deletes their revisions (cascade) and refreshes conversation aggregates; empty
-  conversations are removed. FTS stays in sync through triggers.
+  conversations are removed.
 - `runNow()` backs a "Clean up now" action. Changing the retention period applies on the next run, after showing how
   many messages would be removed.
 
@@ -372,8 +415,8 @@ its sync triggers; rebuilds the FTS index from existing rows (`INSERT INTO messa
 |---|---|---|
 | Unit (JVM) | parsers and every adapter on recorded snapshots (MessagingStyle, Inbox, BigText, summaries, media placeholders, markers in several languages); OTP/sensitive filter patterns and false positives; text normalization; dedupe decisions; deletion-marker matching (0, 1, many candidates); settings gates; widget privacy rules and display models; retention cutoff math; backup header encode/decode, wrong password, tampered header, truncated file, newer version | JUnit 4, Turbine, kotlinx-coroutines-test |
 | Repository | `ingest` end to end on an in-memory Room DB: insert, unchanged, update with revision, redaction never overwriting text, possibly-deleted marking, removal recording without status change, cascade deletes, FTS search | Robolectric + Room |
-| Room migration | open v1 from `app/schemas/.../1.json`, insert rows, migrate to 2 with `MIGRATION_1_2`, validate schema and that data and FTS search survive; also full-history migration test | `MigrationTestHelper` |
-| Security | key create/unwrap/lost/corrupt states with a fake `KeyWrapper`; SQLCipher open with wrong key fails; backup round-trip; app lock relock timer logic | JVM + instrumented |
+| Room migration | open v1/v2 from `app/schemas/.../N.json`, insert rows, migrate 1→2, 1→2→3 and 2→3 (cipher-aware `Migration2To3`), validate schema; content decrypts to the original values, search and identity matching work after migration | `MigrationTestHelper` |
+| Security | key create/unwrap/lost/corrupt states with a fake `KeyWrapper`; HKDF (RFC 5869 vectors), FieldCipher (round trip, nonce randomness, wrong key, column/owner AAD swap, corrupt blob placeholder), blind indexes; no plaintext in db/-wal files; key-check mismatch; legacy 1.0.15 file detection; backup round-trip; app lock relock timer logic | JVM + instrumented |
 | Retention | worker deletes only non-favorites older than cutoff; `0` cancels; schedule uses `UPDATE` and constraints | WorkManager testing |
 | Compose / instrumentation | onboarding path, archive list, conversation, detail with revisions and evidence, search, settings, backup screens, app lock gate, FLAG_SECURE toggle | Compose UI test, Espresso, UI Automator |
 | Widget | Glance composition at each responsive size, privacy modes (metadata, content, locked), empty and error states | `glance-appwidget-testing` |

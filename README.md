@@ -99,8 +99,12 @@ release ever shows a different one, do not install it and open an issue. Details
 
 - Everything stays on your phone. The app has **no INTERNET permission**; the build fails if any permission outside a
   short allowlist appears, and every release APK is checked again before publishing.
-- The archive is an encrypted database (SQLCipher). Its key is protected by the Android Keystore and cannot leave the
-  device, so Android cloud backup and device transfer are disabled. Use **Export** to make an encrypted backup file.
+- Message text, sender names and conversation titles are encrypted in the archive (AES-256-GCM, per field) with a key
+  protected by the Android Keystore that cannot leave the device, so Android cloud backup and device transfer are
+  disabled. App names, times and message counts are not encrypted by the app (Android's own storage encryption still
+  covers them). Use **Export** to make an encrypted backup file.
+- Updating from 1.0.15: that version's archive format can't be read any more, so it is replaced by a new, empty
+  archive. Export a backup in 1.0.15 first, then import it after updating.
 - Nothing is sent to the developer or anyone else: no analytics, crash reporting, ads or third-party SDKs.
 - The archive contains messages other people sent you. Please respect that: keep retention short, exclude apps you do
   not need, and follow the law where you live.
@@ -154,7 +158,7 @@ A signed release build needs your own key (`keystore.properties` or the `SIGNING
 ## License
 
 Copyright 2026 riyadmondol2006. Licensed under the [Apache License 2.0](LICENSE). Third-party components and their
-licenses (including SQLCipher's BSD-style license) are listed in [NOTICE](NOTICE).
+licenses are listed in [NOTICE](NOTICE).
 
 UnsendVault is an independent project and is not affiliated with WhatsApp, Instagram, Messenger, Meta, Telegram,
 Signal, Google or any other messaging service. Product names are used only to describe compatibility.

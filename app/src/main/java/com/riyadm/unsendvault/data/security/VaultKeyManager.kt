@@ -10,9 +10,12 @@ import java.security.UnrecoverableKeyException
 import javax.crypto.AEADBadTagException
 
 /**
- * Owns the database passphrase: 32 bytes from [SecureRandom], generated once, stored only in wrapped form in
- * [keyFile] (inside noBackupFilesDir, so it never leaves the device; the manifest also disables Auto Backup because a
- * Keystore-wrapped key cannot be restored elsewhere).
+ * Owns the vault's root secret: 32 bytes from [SecureRandom], generated once, stored only in wrapped form in [keyFile]
+ * (inside noBackupFilesDir, so it never leaves the device; the manifest also disables Auto Backup because a
+ * Keystore-wrapped key cannot be restored elsewhere). The field-encryption and blind-index keys are derived from it
+ * with HKDF ([FieldCipher.fromRootSecret]); it is unwrapped once per process.
+ *
+ * The file format is unchanged from 1.0.15 (where the same secret keyed SQLCipher), so an existing key file is reused.
  *
  * File format: [FILE_VERSION:u8][wrapper blob].
  *
@@ -41,14 +44,13 @@ class VaultKeyManager(
     fun hasStoredKey(): Boolean = keyFile.exists()
 
     /**
-     * Returns the SQLCipher passphrase in raw-key form (`x'<64 hex>'`, ASCII), which makes SQLCipher use the 256-bit key
-     * directly instead of running its PBKDF2 on every connection open (the key is already full-entropy). The caller owns
-     * the returned array and should zero it when the database is closed.
+     * Returns the 32-byte root secret, creating it on first run. The caller owns the returned array and must zero it as
+     * soon as the subkeys are derived.
      *
-     * @param databaseExists whether the encrypted database file already exists (decides "first run" vs "key lost").
+     * @param databaseExists whether the archive database file already exists (decides "first run" vs "key lost").
      */
     @Throws(VaultKeyException::class)
-    fun loadOrCreatePassphrase(databaseExists: Boolean): ByteArray {
+    fun loadOrCreateRootSecret(databaseExists: Boolean): ByteArray {
         if (!keyFile.exists()) {
             if (databaseExists) {
                 throw VaultKeyException(VaultKeyState.Reason.KEY_LOST, "Wrapped key file is missing but the database exists")
@@ -65,14 +67,11 @@ class VaultKeyManager(
         }
         val blob = stored.copyOfRange(1, stored.size)
         val raw = withRetries { unwrapClassified(blob) }
-        try {
-            if (raw.size != RAW_KEY_BYTES) {
-                throw VaultKeyException(VaultKeyState.Reason.KEY_FILE_CORRUPT, "Unexpected key length ${raw.size}")
-            }
-            return toSqlCipherRawKey(raw)
-        } finally {
+        if (raw.size != RAW_KEY_BYTES) {
             raw.fill(0)
+            throw VaultKeyException(VaultKeyState.Reason.KEY_FILE_CORRUPT, "Unexpected key length ${raw.size}")
         }
+        return raw
     }
 
     /** Deletes the wrapped key file and the Keystore key. Irreversible: the existing database becomes unreadable. */
@@ -84,6 +83,7 @@ class VaultKeyManager(
 
     private fun create(): ByteArray {
         val raw = ByteArray(RAW_KEY_BYTES).also(random::nextBytes)
+        var handedOut = false
         try {
             var lastError: Exception? = null
             // Some Keystore implementations generate keys but fail at use time, so the wrap is verified by an immediate
@@ -97,7 +97,8 @@ class VaultKeyManager(
                     check.fill(0)
                     if (!ok) throw GeneralSecurityException("Wrap round-trip mismatch")
                     writeAtomically(byteArrayOf(FILE_VERSION) + blob)
-                    return toSqlCipherRawKey(raw)
+                    handedOut = true
+                    return raw
                 } catch (e: IOException) {
                     throw VaultKeyException(VaultKeyState.Reason.KEYSTORE_ERROR, "Cannot write key file", e)
                 } catch (e: Exception) {
@@ -107,7 +108,7 @@ class VaultKeyManager(
             }
             throw VaultKeyException(VaultKeyState.Reason.KEYSTORE_ERROR, "Keystore key creation failed", lastError)
         } finally {
-            raw.fill(0)
+            if (!handedOut) raw.fill(0)
         }
     }
 
@@ -158,20 +159,5 @@ class VaultKeyManager(
         const val FILE_VERSION: Byte = 1
         const val RAW_KEY_BYTES = 32
         private const val TMP_SUFFIX = ".tmp"
-        private val HEX = "0123456789abcdef".toByteArray(Charsets.US_ASCII)
-
-        /** `x'` + 64 lowercase hex digits + `'` as ASCII bytes, built without an intermediate String. */
-        fun toSqlCipherRawKey(raw: ByteArray): ByteArray {
-            val out = ByteArray(raw.size * 2 + 3)
-            out[0] = 'x'.code.toByte()
-            out[1] = '\''.code.toByte()
-            raw.forEachIndexed { i, b ->
-                val v = b.toInt() and 0xFF
-                out[2 + i * 2] = HEX[v ushr 4]
-                out[3 + i * 2] = HEX[v and 0x0F]
-            }
-            out[out.size - 1] = '\''.code.toByte()
-            return out
-        }
     }
 }
