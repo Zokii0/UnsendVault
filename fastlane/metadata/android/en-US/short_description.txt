@@ -1,0 +1,1 @@
+Offline, encrypted archive of message notifications. No internet permission.

@@ -1,0 +1,22 @@
+UnsendVault keeps an encrypted, on-device copy of the message previews your messaging apps show in notifications, so
+you can still read a message after the sender deleted or unsent it, as long as its notification reached your phone.
+
+<b>What it cannot do</b>
+<ul>
+<li>Recover messages from before you granted Notification Access, or from a server or backup</li>
+<li>Capture chats that are open on screen, muted chats without notifications, or hidden previews</li>
+<li>Save photos, videos, voice notes or files (only a placeholder such as "Photo")</li>
+<li>Read content Android withholds from such apps (one-time codes on Android 15+, possibly end-to-end encrypted messages on Android 17+)</li>
+</ul>
+
+<b>Features</b>
+<ul>
+<li>Archive by app and conversation, full-text search, favorites</li>
+<li>Update history; "possibly deleted" only when the app itself showed a deletion marker</li>
+<li>Pause capture, exclude apps, messages-only mode, one-time-code filter</li>
+<li>Auto-delete after a chosen number of days</li>
+<li>App lock, secure screen, password-encrypted export and import</li>
+<li>Five home-screen widgets that show counts only by default</li>
+</ul>
+
+<b>Privacy</b>: no INTERNET permission, no ads, no analytics, no account. Everything stays on your phone.

@@ -1,0 +1,67 @@
+# Privacy policy
+
+Effective 2026-10-29. Applies to UnsendVault for Android, published by riyadmondol2006 at
+https://github.com/riyadmondol2006/UnsendVault.
+
+## Summary
+
+UnsendVault stores message previews from your notifications **on your phone only**, in an encrypted database. The
+developer receives nothing: the app has no internet permission and contains no analytics, advertising, crash
+reporting or other third-party services.
+
+## What the app reads
+
+Only after you grant **Notification Access** in Android's settings, UnsendVault receives the notifications other apps
+post. From notifications it treats as messages (by default), it reads the app name, conversation title, sender name,
+message text or placeholder (for example "Photo"), and timestamps. It also notes when a notification was removed and
+the reason Android gives, for display only.
+
+It does not read your contacts, SMS database, files, photos, location, microphone or camera, and it cannot read
+anything inside other apps that was not shown in a notification.
+
+## What the app stores, and where
+
+- Archived messages, conversation names, update history and deletion markers: in an app-private database encrypted
+  with SQLCipher. The database key is generated on the device and protected by the Android Keystore.
+- Your settings: in app-private storage (DataStore).
+- Before storage, one-time codes and sensitive numbers are replaced by a placeholder when the corresponding filters
+  are on (they are on by default). Content that Android itself hides is not stored.
+
+Nothing is uploaded. Android cloud backup and device-to-device transfer are disabled for the app.
+
+## Exports
+
+If you use **Export**, the app writes a password-encrypted file (PBKDF2-HMAC-SHA256 key derivation, AES-256-GCM) to a
+location you pick in the system file picker. Where that file goes afterwards (for example a cloud drive) is your
+choice and outside the app. Without the password the file cannot be read, and the password cannot be recovered.
+
+## Retention and deletion
+
+- Auto-delete removes messages older than the period you choose (default 30 days; favorites are kept; 0 keeps
+  everything).
+- You can delete single messages, conversations, everything from one app, or the whole archive at any time.
+- Uninstalling the app deletes all its data and its Keystore key. Existing export files are not affected.
+
+## Widgets and screen privacy
+
+Widgets show counts and app names unless you turn on message content, and never message content while the app lock is
+on. The "secure screen" option (on by default) hides the app in Recents and blocks screenshots.
+
+## Other people's messages
+
+The archive contains messages other people sent you. They may have deleted a message on purpose. Please use the app
+responsibly and in line with the law where you live. UnsendVault cannot be enabled remotely and is not designed or
+allowed to be used for monitoring someone else's device.
+
+## Children
+
+UnsendVault is not directed at children and collects no data from anyone.
+
+## Changes
+
+Changes to this policy are made in this file in the public repository, with the date above updated.
+
+## Contact
+
+Open an issue at https://github.com/riyadmondol2006/UnsendVault/issues, or for security matters see
+[SECURITY.md](SECURITY.md).

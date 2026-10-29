@@ -1,0 +1,138 @@
+# UnsendVault
+
+An offline, encrypted archive of the message previews your messaging apps show in notifications. If someone deletes
+or unsends a message after its notification reached your phone, you can still read what the notification said.
+
+Android app, open source (Apache-2.0). No INTERNET permission, no ads, no trackers, no analytics, no account.
+
+## Read this first: what it can and cannot do
+
+UnsendVault works only through Android's **Notification Access**, which you grant in system settings. It keeps a copy
+of the **text that notifications showed**, on your phone, from the moment you grant access.
+
+It **can**:
+
+- archive message previews from WhatsApp, Instagram, Messenger, Telegram, Signal, Google Messages and other apps that
+  post message notifications, grouped by app and conversation, searchable;
+- keep earlier versions when a notification's text for the same message changes ("updated");
+- mark a message **possibly deleted** when the source app itself showed a marker such as "This message was deleted"
+  or "unsent a message" and it matches exactly one archived message. The marker is shown as the evidence.
+
+It **cannot**:
+
+- recover anything from before you granted access, or from while capture was paused or stopped;
+- read chats you have **open on screen** (apps usually post no notification for them), chats you **muted** if the app
+  posts nothing for them, or apps where **previews are hidden** ("New message");
+- save **photos, videos, voice notes or files**; you get a placeholder such as "Photo";
+- read content Android withholds from apps like this one: one-time codes on Android 15+, and possibly end-to-end
+  encrypted messages on Android 17+ (Google lists "Restricted message access" without documenting the details; see
+  [docs/PRODUCT_RESEARCH.md](docs/PRODUCT_RESEARCH.md#54-android-17-api-37-message-access-restrictions));
+- tell whether a message was deleted just because its notification disappeared. Dismissing or reading a message also
+  removes notifications, so that is never treated as deletion;
+- fetch anything from a server, a chat backup or another device. It is not a recovery tool and not a monitoring tool.
+
+Some phone makers stop background apps aggressively. If capture stops, the app shows it and helps you reconnect;
+see [Reliability](#reliability).
+
+## Features
+
+- Archive by app, conversation and message, newest first; full-text search with app and date filters
+- Message detail with update history, capture times, and deletion evidence when there is any
+- Favorites (kept by auto-delete)
+- Pause and resume capture, exclude apps, "messages only" mode (default on)
+- One-time-code and sensitive-number filter before anything is stored (default on)
+- Auto-delete after N days (default 30; 0 keeps forever), run by a daily background job
+- App lock with fingerprint, face or screen lock; relock timeout; hide content in Recents and block screenshots
+- Encrypted export and import (password-based) to a file you choose
+- Five home-screen widgets: archive count, recent, favorites, app summary, capture control. They show counts and
+  app names only unless you turn on content, and never content while the app lock is on
+- Material 3, light/dark/AMOLED, dynamic color on Android 12+
+
+Requires Android 8.0 (API 26) or newer.
+
+## Install
+
+1. Download `UnsendVault-<version>.apk` from the [latest release](https://github.com/riyadmondol2006/UnsendVault/releases/latest).
+2. Verify it (below).
+3. Open it on your phone and allow installing from your browser or file manager when asked.
+4. Open UnsendVault and follow the setup. On **Android 13 and later**, Android may block Notification Access for apps
+   installed from a file. If the switch is greyed out: Settings > Apps > UnsendVault > ⋮ (top right) >
+   **Allow restricted settings**, then grant Notification Access again.
+
+UnsendVault is not on Google Play. Updates are new APKs on the Releases page, signed with the same key; Android
+refuses an update signed by anyone else.
+
+### Verify the download
+
+Each release lists the APK's SHA-256 and the signing certificate's SHA-256, and ships `UnsendVault-<version>.apk.sha256`.
+
+```sh
+sha256sum --check UnsendVault-1.0.57.apk.sha256           # UnsendVault-1.0.57.apk: OK
+apksigner verify --print-certs UnsendVault-1.0.57.apk     # compare "certificate SHA-256 digest" with the release notes
+```
+
+`apksigner` is part of the Android SDK build-tools. The signing certificate is the same for every release; if a
+release ever shows a different one, do not install it and open an issue. Details: [docs/RELEASING.md](docs/RELEASING.md#how-users-verify-a-download).
+
+## Privacy in short
+
+- Everything stays on your phone. The app has **no INTERNET permission**; the build fails if any permission outside a
+  short allowlist appears, and every release APK is checked again before publishing.
+- The archive is an encrypted database (SQLCipher). Its key is protected by the Android Keystore and cannot leave the
+  device, so Android cloud backup and device transfer are disabled. Use **Export** to make an encrypted backup file.
+- Nothing is sent to the developer or anyone else: no analytics, crash reporting, ads or third-party SDKs.
+- The archive contains messages other people sent you. Please respect that: keep retention short, exclude apps you do
+  not need, and follow the law where you live.
+
+Full details: [PRIVACY.md](PRIVACY.md). Security reports: [SECURITY.md](SECURITY.md).
+
+## Permissions
+
+| Permission | Why |
+|---|---|
+| Notification Access (granted by you in system settings) | Read message notifications |
+| `USE_BIOMETRIC` / `USE_FINGERPRINT` | App lock |
+| `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` | Used by WorkManager for the daily auto-delete job and widget updates; reschedules after reboot |
+
+That is the complete list (plus an internal, non-exported broadcast permission that AndroidX adds).
+
+## Reliability
+
+- The app and the capture widget show whether capture is running, paused, needs access, or was disconnected.
+- If it was disconnected, opening the app asks Android to reconnect the listener.
+- On phones that stop background apps (see [dontkillmyapp.com](https://dontkillmyapp.com/)), set UnsendVault's battery
+  usage to "Unrestricted" / "Don't optimize" and allow autostart if your phone has that option. The status screen
+  links to the right settings page.
+- No foreground service, no exact alarms, no polling: widgets and lists update only when something changes.
+
+## Build from source
+
+Requirements: JDK 21 (bytecode targets 17), Android SDK with platform 37 (`platforms;android-37.0`) and build-tools
+37.0.0. Gradle 9.8.2 comes through the wrapper.
+
+```sh
+git clone https://github.com/riyadmondol2006/UnsendVault.git
+cd UnsendVault
+./gradlew :app:assembleDebug                 # app/build/outputs/apk/debug/app-debug.apk (id com.riyadm.unsendvault.debug)
+./gradlew :app:testDebugUnitTest :app:lintDebug :app:verifyPermissionsDebug
+./gradlew -q :app:printVersion
+```
+
+A signed release build needs your own key (`keystore.properties` or the `SIGNING_*` environment variables); see
+[docs/RELEASING.md](docs/RELEASING.md). Builds made with a different key cannot update an installed official release.
+
+## Documentation
+
+- [docs/PRODUCT_RESEARCH.md](docs/PRODUCT_RESEARCH.md): scope, platform research with sources, risks
+- [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md): architecture, data flow, algorithms, security, testing
+- [docs/WIDGET_DESIGN.md](docs/WIDGET_DESIGN.md): widgets
+- [docs/RELEASING.md](docs/RELEASING.md): CI, signing, versions, verification
+- [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md)
+
+## License
+
+Copyright 2026 riyadmondol2006. Licensed under the [Apache License 2.0](LICENSE). Third-party components and their
+licenses (including SQLCipher's BSD-style license) are listed in [NOTICE](NOTICE).
+
+UnsendVault is an independent project and is not affiliated with WhatsApp, Instagram, Messenger, Meta, Telegram,
+Signal, Google or any other messaging service. Product names are used only to describe compatibility.
