@@ -5,8 +5,8 @@ before opening a pull request.
 
 ## Ground rules
 
-- **Offline only.** No `INTERNET` or other network permission, no analytics, ads, crash reporters or SDKs that talk to
-  a server. The build fails (`verifyPermissions<Variant>`) if the merged manifest gains a permission outside the
+- **Offline first.** The only network code is the opt-in update check in the `update` package (a test fails if network
+  APIs appear anywhere else). No analytics, ads, crash reporters or SDKs that talk to a server. The build fails (`verifyPermissions<Variant>`) if the merged manifest gains a permission outside the
   allowlist; do not extend the allowlist without discussing it in an issue first.
 - **Honest capture.** Never mark a message deleted from a notification removal. New deletion markers must come from
   text the source app actually displays, and must match exactly one message (see

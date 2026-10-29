@@ -70,8 +70,8 @@ verified from the outside.
 | **General notification loggers / automation tools** | Capture every app's notifications as raw text. | Messaging-specific parsing (MessagingStyle threads, senders, groups, dedupe), messages-only default. |
 | **Chat apps' own features** (for example, an "edited" label or keeping deleted messages for the sender) | Vary per app and change over time. | Works across apps; read-only; never touches the chat app. |
 
-Positioning: an **open-source, offline-only, encrypted** archive of message previews, with clear limits stated up
-front, no INTERNET permission (enforced at build time and verified on the release APK), and no data collection.
+Positioning: an **open-source, offline-first, encrypted** archive of message previews, with clear limits stated up
+front, no data collection, and no network use except an opt-in update check.
 
 ## 4. Deletion and edit semantics (product rules)
 
@@ -271,8 +271,8 @@ deceptive-behavior rules, which is another reason the listing and README state t
   users to respect senders' choices and local law.
 - **No surveillance use**: the app cannot be installed or enabled remotely, hides nothing from the phone's owner,
   shows a launcher icon, and its capture state is visible in the app and widget.
-- **Local only**: no INTERNET permission, enforced by the build and checked on every release APK. No analytics, ads,
-  crash reporters or trackers. Backups are user-initiated encrypted files through the system file picker.
+- **Local only**: the archive never leaves the phone; the only network request is the opt-in update check (permissions
+  enforced by the build and checked on every release APK). No analytics, ads, crash reporters or trackers. Backups are user-initiated encrypted files through the system file picker.
 - **Sensitive content**: one-time codes and other sensitive patterns are replaced before storage by default, and the
   system's own redaction (section 5.3) is respected.
 
@@ -284,7 +284,7 @@ deceptive-behavior rules, which is another reason the listing and README state t
 | R2 | Never mark a message deleted without an explicit marker from the source app matched to exactly one message. |
 | R3 | Keep a revision history for updated messages. |
 | R4 | Store system-redacted content as such; never store the placeholder as if it were the message. |
-| R5 | No INTERNET permission; local encrypted storage; app lock; FLAG_SECURE option. |
+| R5 | Local encrypted storage; no network use except the opt-in update check; app lock; FLAG_SECURE option. |
 | R6 | Detect disconnected listener; offer `requestRebind`, battery-settings guidance; no foreground service. |
 | R7 | Retention with favorites kept; easy bulk deletion; encrypted export as the only backup path. |
 | R8 | Widgets show counts only by default; content only when enabled and the app lock is off. |

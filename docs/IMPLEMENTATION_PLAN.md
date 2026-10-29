@@ -15,7 +15,7 @@ the two disagree: the domain contracts in `core/model/Models.kt`, `capture/Captu
 | Architecture | MVVM, unidirectional data flow, Kotlin coroutines and Flow, manual DI (`AppContainer`, all lazy) |
 | Storage | Room on the framework SQLite with field-level encryption (AES-256-GCM per field, HMAC blind indexes), DataStore Preferences for settings |
 | Background | NotificationListenerService only; WorkManager for the daily retention job; Glance for widgets |
-| Network | None. No `INTERNET`; build fails on any permission outside the allowlist (`verifyPermissions<Variant>`) |
+| Network | Only the opt-in update check (`update` package, HTTPS GET to api.github.com, at most daily while the app is open; see UPDATES.md). Build fails on any permission outside the allowlist (`verifyPermissions<Variant>`); a test fails if network APIs appear outside `update` |
 | Backup | `allowBackup=false`, data extraction rules exclude everything; encrypted export via the Storage Access Framework is the only backup path |
 | Not used | Foreground services, exact alarms, `POST_NOTIFICATIONS`, accessibility services, SMS permissions, analytics, crash reporters |
 
@@ -340,7 +340,7 @@ date.
 | App lock | `BiometricPrompt` with `BIOMETRIC_STRONG or DEVICE_CREDENTIAL` on API 30+, `BIOMETRIC_WEAK or DEVICE_CREDENTIAL` on 28-29 (combination not supported for STRONG there), `KeyguardManager.createConfirmDeviceCredentialIntent` on 26-27. Relock after the configured background timeout (0 = immediately). |
 | Screen privacy | `FLAG_SECURE` option (default on) hides content in Recents and blocks screenshots/screen recording. |
 | Widgets | Counts and app names only by default; message content only when the user enables it **and** the app lock is off; redacted/filtered messages never shown (see WIDGET_DESIGN.md). |
-| No network | No `INTERNET`; enforced on the merged manifest and re-checked on the signed APK. |
+| Network | `INTERNET` exists only for the opt-in update check; cleartext disabled by network security config; no network-state permissions; network APIs confined to the `update` package by a unit test; permissions enforced on the merged manifest and re-checked on the signed APK. |
 | Exported components | Only the launcher activity, the listener service (protected by `BIND_NOTIFICATION_LISTENER_SERVICE`) and widget receivers (system broadcasts). No content providers, no custom intents that read data. |
 | Logs | No message text, titles or senders in logcat in release builds. |
 
@@ -356,7 +356,7 @@ date.
 | Stolen backup file | Yes | PBKDF2 + AES-256-GCM; strength depends on the password (UI enforces a minimum length and shows guidance). |
 | Crafted backup file (malformed, huge, newer format) | Yes | Header validated before decryption, iteration bounds checked, size limits, versioned payload, schema version check. |
 | Malicious notification content (very long text, bidi control characters, markup) | Yes | Length caps at capture, text rendered as plain text, bidi overrides stripped in widgets. |
-| Network exfiltration by a dependency | Yes | No INTERNET permission at all; build and release checks. |
+| Network exfiltration by a dependency | Partly | `INTERNET` is present for the update check, so a malicious dependency could use it; mitigated by a small, reviewed dependency set (AndroidX/Kotlin only, no network libraries), the network-isolation test for app code, and the permission allowlist. |
 | Tampered release APK | Yes | Signed releases, published SHA-256 and certificate fingerprint. |
 | Rooted device, malware with root, forensic extraction of a running unlocked device; code running as the app | No | Out of scope: such an attacker can ask the Keystore to unwrap the root secret or read decrypted data in memory. The Keystore raises the cost of extracting the key itself. |
 | The phone's owner misusing the archive | Partly | Product design and documentation (see PRODUCT_RESEARCH.md section 6); not technically preventable. |
@@ -444,14 +444,14 @@ Run on the reference device (Pixel 6, Android 17) and at least one older API (26
     updates in `dumpsys appwidget` without data changes).
 13. Export, wipe app data, import: counts match; wrong password rejected.
 14. Retention: set 1 day with old test data, run "Clean up now", favorites kept.
-15. Release APK checks: `aapt2 dump permissions` shows no INTERNET; `apksigner verify --print-certs` matches the
+15. Release APK checks: `aapt2 dump permissions` shows only the allowlisted permissions (INTERNET for the opt-in update check, no network-state permissions); `apksigner verify --print-certs` matches the
     published certificate.
 
 ## 14. Release process
 
 Every push to `main` that passes `verify` is signed and published as a GitHub Release by `.github/workflows/ci.yml`.
 Versions are `MAJOR.MINOR.<commit count>`. The release job restores the keystore from secrets, builds with
-`UNSENDVAULT_REQUIRE_SIGNING=true`, verifies the APK (signature scheme, certificate, version, no INTERNET), and
+`UNSENDVAULT_REQUIRE_SIGNING=true`, verifies the APK (signature scheme, certificate, version, permission allowlist), and
 publishes the APK with its `.sha256` file and the certificate fingerprint. Details and the user-side verification
 steps are in [RELEASING.md](RELEASING.md). Use `[skip release]` in the head commit message for changes that should not
 produce a release (docs only, for example).

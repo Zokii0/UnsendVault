@@ -6,7 +6,20 @@ Releases are built and published automatically from `main` and numbered `MAJOR.M
 
 ## Unreleased
 
+### Added
+- Optional update check: after setup the app asks once whether it may check GitHub for new releases. If allowed, it
+  asks `api.github.com` at most once a day while the app is open and shows a dialog with Download / Release page /
+  Later / Skip this version. "Check now" in Settings > Updates. This adds the `INTERNET` permission, used only for
+  this request; nothing from the archive is ever sent.
+- README logo, screenshots and badges.
+
 ### Changed
+- Smaller download: the release APK is about 3.1 MB instead of 11.5 MB (SQLCipher removed, English-only resources,
+  compressed native libraries, v2/v3-only signing, narrower R8 keep rules). See docs/APK_SIZE.md.
+- Lower background cost: notifications that will be dropped are rejected before anything is copied, bursts of updates
+  to one notification are processed once, pausing capture unbinds the listener, reconnect catch-up and rebind requests
+  are throttled, and the process start for the listener no longer touches the database, DataStore or WorkManager.
+  See docs/BATTERY.md.
 - Storage encryption: SQLCipher is no longer used (about 1 MB smaller download). The archive is a regular Room/SQLite
   database in which message text, sender names, conversation titles and keys, edit history, deletion markers and the
   latest-message preview are each encrypted with AES-256-GCM, using keys derived (HKDF-SHA256) from the same
@@ -26,7 +39,7 @@ Releases are built and published automatically from `main` and numbered `MAJOR.M
   deleted and a new, empty archive is created with the same key; a one-time notice explains this. If you exported a
   backup with 1.0.15, import it after updating: backups use an unchanged format and import normally.
 
-## Unreleased (1.0)
+## 1.0.15 (first release)
 
 First version, in development.
 

@@ -19,4 +19,4 @@ you can still read a message after the sender deleted or unsent it, as long as i
 <li>Five home-screen widgets that show counts only by default</li>
 </ul>
 
-<b>Privacy</b>: no INTERNET permission, no ads, no analytics, no account. Everything stays on your phone.
+<b>Privacy</b>: no ads, no analytics, no account. Everything stays on your phone; the only network use is an optional update check you have to allow.

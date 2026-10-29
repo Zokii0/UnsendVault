@@ -28,8 +28,9 @@ advisory is published, and you are credited if you wish.
   user's action.
 - Weaknesses in the export format: decryption without the password, undetected tampering, crashes or resource
   exhaustion from a crafted import file.
-- A release APK that declares `INTERNET` or any permission outside the documented allowlist, or that is signed by a
-  different certificate than the one published in the release notes.
+- A release APK that declares any permission outside the documented allowlist (`INTERNET` is allowed only for the
+  opt-in update check), any network traffic other than that check, or a release signed by a different certificate than
+  the one published in the release notes.
 - Messages marked "possibly deleted" without the source app's marker (this misleads users about other people).
 
 ## Out of scope

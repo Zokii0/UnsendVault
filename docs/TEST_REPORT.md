@@ -23,8 +23,8 @@ The request mentioned a Pixel 6 Pro; the connected device reports itself as a Pi
 > by 1→2→3 and 2→3 `MigrationTestHelper` runs. Search no longer uses FTS + LIKE but decrypts and matches rows. The
 > database file now *does* start with `SQLite format 3` (only the content columns are encrypted). The release smoke
 > test's "SQLCipher DB" line, the cold-start time and the APK size were measured with SQLCipher and need re-measuring.
-> A 1.0.15 archive is not migrated (it is replaced by an empty vault with a notice). The device runs of the new tests
-> are pending.
+> A 1.0.15 archive is not migrated (it is replaced by an empty vault with a notice). Device results for the new code
+> are in [Round 2](#round-2-2026-10-30-field-encryption-apk-size-battery-update-check) below.
 
 ## Automated tests
 
@@ -132,3 +132,44 @@ observed when no widget is placed.
 - Large font scale, RTL and TalkBack walkthroughs on the device.
 - Retention actually deleting old messages on the device (all data was newer than the 30-day cutoff); covered by
   unit tests.
+
+## Round 2 (2026-10-30): field encryption, APK size, battery, update check
+
+Same Pixel 6 / Android 17 device. Code: `main` after merging the field-encryption, APK-size, battery and update-check
+branches.
+
+### Automated
+
+| Suite | Result |
+|---|---|
+| Unit tests (`:app:testDebugUnitTest`) | **423 run, 0 failed, 1 skipped** |
+| Instrumented tests on the Pixel (`:app:connectedDebugAndroidTest`) | **29 run, 0 failed** (incl. FieldEncryptionDeviceTest, MigrationInstrumentedTest 1→2→3 and 2→3, KeystoreAndVaultTest with the legacy-archive case, UpdateUiTest ×4) |
+| Lint | 0 errors, 15 warnings (`UnusedAttribute`) |
+| Permission gate (debug + release) | pass; release declares INTERNET (update check), USE_BIOMETRIC, USE_FINGERPRINT, WAKE_LOCK, RECEIVE_BOOT_COMPLETED, app-private dynamic receiver permission; no network-state permissions |
+| Release APK size (unsigned, R8) | **3.10 MB** (1.0.15: 11.5 MB) |
+
+### Manual on the device
+
+| Area | Steps | Result |
+|---|---|---|
+| Upgrade from a SQLCipher-era build | Install a pre-change debug build, capture a message, install the new build over it | Old `unsendvault.db` (random header) detected and removed; `vault-v3.db` created; after onboarding the notice "Your previous archive was removed … import it now" with "Got it". Pass |
+| Import a backup made by the official 1.0.15 release | Export from 1.0.15 (6 synthetic messages), import into the new vault | "Imported 6 messages in 4 conversations". Pass |
+| No plaintext in the new database | Pull `vault-v3.db` and `-wal` via `run-as`, search for message text, sender names and a conversation title | 0 occurrences of any of them; package names are present in plaintext (documented trade-off). Pass |
+| Search over encrypted data | Search "upgrading" | 1 correct result. Pass |
+| Pause unbinds the listener | Pause in Settings, inspect `dumpsys notification` live listeners | While paused the debug build's listener is not bound (zero callbacks); after resume it is bound again and a new message is captured. Pass |
+| Update check: consent | Fresh onboarding | "Check for updates automatically?" dialog once, after onboarding, with the GitHub/IP disclosure. Pass |
+| Update check: popup (real GitHub API) | Debug build reporting version 1.0.1, Settings > Updates > Check now | "UnsendVault 1.0.15 is available · You have 1.0.1-debug" with notes and Download / Release page / Later / Skip this version. Pass |
+| Update check: download | Tap Download | Chrome downloaded the release APK (11,511,758 bytes, same as the published asset); test file deleted afterwards. Pass |
+| Update check: automatic (release-type build) | R8 build, Allow | "Last checked" set immediately; installed 1.0.25 > 1.0.15 so correctly no popup. Pass |
+| R8 release smoke test | Side-by-side `.r8test` copy of the release build, signed with a throwaway key, uninstalled afterwards | Cold start 223 ms; onboarding, capture, conversation and message detail (typed navigation routes), backup import and export (kotlinx.serialization) all work; no crash or serialization error in logcat. Pass |
+
+### Battery measurement method notes
+
+- Debug builds are not representative: a `simpleperf` profile of the debug build during a 1-message-per-second
+  workload showed most time in ART's interpreter and ~18 % in JIT compilation, and 13.8 % in Glance's one-time
+  widget-picker preview generation (runs once per app version, 15 s after start; `pm clear` re-triggers it). Debug
+  before/after numbers were therefore discarded.
+- Measurements use warmed-up release builds, our process's CPU time (`utime+stime` from `/proc/<pid>/stat`, 100 Hz
+  ticks), and three workloads posted from `com.android.shell`: W1 = 120 non-message notifications (0.5 s apart),
+  W2 = 60 chat messages (1 s apart), W3 = 30 bursts of 8 identical reposts.
+- Baseline, official 1.0.15 release (two runs): W1 66 / 66, W2 195 / 87, W3 175 / 148 ticks.

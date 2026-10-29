@@ -19,7 +19,8 @@
 An offline, encrypted archive of the message previews your messaging apps show in notifications. If someone deletes
 or unsends a message after its notification reached your phone, you can still read what the notification said.
 
-Android app, open source (Apache-2.0). No INTERNET permission, no ads, no trackers, no analytics, no account.
+Android app, open source (Apache-2.0). No ads, no trackers, no analytics, no account. Works fully offline; the only
+network use is an optional update check that you have to allow first.
 
 ## Read this first: what it can and cannot do
 
@@ -113,8 +114,10 @@ release ever shows a different one, do not install it and open an issue. Details
 
 ## Privacy in short
 
-- Everything stays on your phone. The app has **no INTERNET permission**; the build fails if any permission outside a
-  short allowlist appears, and every release APK is checked again before publishing.
+- Everything stays on your phone. The only network request the app can make is an **opt-in update check** to
+  `api.github.com` (at most once a day while the app is open, never in the background, nothing from your archive is
+  sent; see [docs/UPDATES.md](docs/UPDATES.md)). Network code is confined to one package by a test, the build fails if
+  any permission outside a short allowlist appears, and every release APK is checked again before publishing.
 - Message text, sender names and conversation titles are encrypted in the archive (AES-256-GCM, per field) with a key
   protected by the Android Keystore that cannot leave the device, so Android cloud backup and device transfer are
   disabled. App names, times and message counts are not encrypted by the app (Android's own storage encryption still

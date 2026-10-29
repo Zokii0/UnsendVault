@@ -6,8 +6,9 @@ https://github.com/riyadmondol2006/UnsendVault.
 ## Summary
 
 UnsendVault stores message previews from your notifications **on your phone only**, with the message content encrypted. The
-developer receives nothing: the app has no internet permission and contains no analytics, advertising, crash
-reporting or other third-party services.
+developer receives nothing: there are no analytics, advertising, crash reporting or other third-party services. The
+only network use is an **optional update check** (off until you allow it, see below); it never sends anything from your
+archive.
 
 ## What the app reads
 
@@ -68,3 +69,14 @@ Changes to this policy are made in this file in the public repository, with the 
 
 Open an issue at https://github.com/riyadmondol2006/UnsendVault/issues, or for security matters see
 [SECURITY.md](SECURITY.md).
+
+## Update check (optional)
+
+After setup, UnsendVault asks once whether it may check for updates. Only if you choose **Allow**, it sends one HTTPS
+request to `https://api.github.com/repos/riyadmondol2006/UnsendVault/releases/latest` at most once a day while you use
+the app (never in the background). The request contains only standard headers and `User-Agent: UnsendVault/<version>`;
+GitHub sees your IP address and the app version, like any website visit, under
+[GitHub's privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement).
+Nothing from your archive, your notifications or your installed apps is sent. "Check now" in Settings sends the same
+request once when you tap it. You can turn the automatic check off at any time in Settings > Updates. Details:
+[docs/UPDATES.md](docs/UPDATES.md).
