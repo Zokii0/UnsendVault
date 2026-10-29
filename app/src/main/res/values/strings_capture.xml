@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Capture layer strings. Placeholders are written into stored message text at capture time. -->
+<resources>
+    <string name="capture_self_sender">You</string>
+    <string name="capture_placeholder_system_redacted">Content hidden by Android</string>
+    <string name="capture_placeholder_otp">One-time code hidden by UnsendVault</string>
+    <string name="capture_placeholder_sensitive">Sensitive content hidden by UnsendVault</string>
+    <string name="capture_media_photo">📷 Photo</string>
+    <string name="capture_media_video">🎥 Video</string>
+    <string name="capture_media_audio">🎤 Audio</string>
+    <string name="capture_media_attachment">📎 Attachment</string>
+</resources>
