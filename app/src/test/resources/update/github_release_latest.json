@@ -1,0 +1,107 @@
+{
+  "url": "https://api.github.com/repos/riyadmondol2006/UnsendVault/releases/428190631",
+  "assets_url": "https://api.github.com/repos/riyadmondol2006/UnsendVault/releases/428190631/assets",
+  "upload_url": "https://uploads.github.com/repos/riyadmondol2006/UnsendVault/releases/428190631/assets{?name,label}",
+  "html_url": "https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1.0.15",
+  "id": 428190631,
+  "author": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "node_id": "RE_kwDOVb9bVs4Zhaun",
+  "tag_name": "v1.0.15",
+  "target_commitish": "main",
+  "name": "UnsendVault 1.0.15",
+  "draft": false,
+  "immutable": false,
+  "prerelease": false,
+  "created_at": "2026-10-29T17:23:48Z",
+  "updated_at": "2026-10-29T17:35:06Z",
+  "published_at": "2026-10-29T17:35:06Z",
+  "assets": [
+    {
+      "url": "https://api.github.com/repos/riyadmondol2006/UnsendVault/releases/assets/689356213",
+      "id": 689356213,
+      "node_id": "RA_kwDOVb9bVs4pFr21",
+      "name": "mapping-1.0.15.zip",
+      "label": "",
+      "uploader": {
+        "login": "github-actions[bot]",
+        "id": 41898282,
+        "type": "Bot"
+      },
+      "content_type": "application/zip",
+      "state": "uploaded",
+      "size": 4035170,
+      "digest": "sha256:9a880b224421a541c5acc2b61b8e0bd1d7c1b7367f4aed2aa624964d6a75ddd2",
+      "download_count": 0,
+      "created_at": "2026-10-29T17:35:04Z",
+      "updated_at": "2026-10-29T17:35:04Z",
+      "browser_download_url": "https://github.com/riyadmondol2006/UnsendVault/releases/download/v1.0.15/mapping-1.0.15.zip"
+    },
+    {
+      "url": "https://api.github.com/repos/riyadmondol2006/UnsendVault/releases/assets/689356219",
+      "id": 689356219,
+      "node_id": "RA_kwDOVb9bVs4pFr27",
+      "name": "SHA256SUMS.txt",
+      "label": "",
+      "uploader": {
+        "login": "github-actions[bot]",
+        "id": 41898282,
+        "type": "Bot"
+      },
+      "content_type": "text/plain; charset=utf-8",
+      "state": "uploaded",
+      "size": 270,
+      "digest": "sha256:2eaa66f10cd910604dbdfb88641d37a4795178eba8867ea11cce755aa680c057",
+      "download_count": 0,
+      "created_at": "2026-10-29T17:35:04Z",
+      "updated_at": "2026-10-29T17:35:04Z",
+      "browser_download_url": "https://github.com/riyadmondol2006/UnsendVault/releases/download/v1.0.15/SHA256SUMS.txt"
+    },
+    {
+      "url": "https://api.github.com/repos/riyadmondol2006/UnsendVault/releases/assets/689356215",
+      "id": 689356215,
+      "node_id": "RA_kwDOVb9bVs4pFr23",
+      "name": "UnsendVault-1.0.15.apk",
+      "label": "",
+      "uploader": {
+        "login": "github-actions[bot]",
+        "id": 41898282,
+        "type": "Bot"
+      },
+      "content_type": "application/vnd.android.package-archive",
+      "state": "uploaded",
+      "size": 11511758,
+      "digest": "sha256:0b2a82f14d235cf34e18475f6a26867ab002b937cd671435c6b5f9789232c8a4",
+      "download_count": 3,
+      "created_at": "2026-10-29T17:35:04Z",
+      "updated_at": "2026-10-29T17:35:05Z",
+      "browser_download_url": "https://github.com/riyadmondol2006/UnsendVault/releases/download/v1.0.15/UnsendVault-1.0.15.apk"
+    },
+    {
+      "url": "https://api.github.com/repos/riyadmondol2006/UnsendVault/releases/assets/689356218",
+      "id": 689356218,
+      "node_id": "RA_kwDOVb9bVs4pFr26",
+      "name": "UnsendVault-1.0.15.apk.sha256",
+      "label": "",
+      "uploader": {
+        "login": "github-actions[bot]",
+        "id": 41898282,
+        "type": "Bot"
+      },
+      "content_type": "application/octet-stream",
+      "state": "uploaded",
+      "size": 89,
+      "digest": "sha256:c264b43d2b5e790b3f229c57205135725bd0cae0013d3757078d03068052483d",
+      "download_count": 2,
+      "created_at": "2026-10-29T17:35:04Z",
+      "updated_at": "2026-10-29T17:35:04Z",
+      "browser_download_url": "https://github.com/riyadmondol2006/UnsendVault/releases/download/v1.0.15/UnsendVault-1.0.15.apk.sha256"
+    }
+  ],
+  "tarball_url": "https://api.github.com/repos/riyadmondol2006/UnsendVault/tarball/v1.0.15",
+  "zipball_url": "https://api.github.com/repos/riyadmondol2006/UnsendVault/zipball/v1.0.15",
+  "body": "## Install\n\nDownload `UnsendVault-1.0.15.apk`, check it (below), open it on your phone and allow installing from your browser or file\nmanager when Android asks. On Android 13 and later, Android may block Notification Access for an app installed\nthis way until you allow it: Settings > Apps > UnsendVault > ⋮ > *Allow restricted settings*.\n\nUnsendVault has no INTERNET permission. It only archives what messaging apps show in notifications after you\ngrant Notification Access; see the README for what it cannot capture.\n\n## What changed\n\nFirst release.\n\n- Fix identity matching and Keystore placement found in device testing; add test report and screenshots (0d3c735)\n- Integrate layers: widget deep links, vault health banner, retention startup, settings intent queries (21fd96d)\n- UI layer and app lock: Compose screens, adaptive navigation, settings, backup flows (bd1f2c4)\n- Data layer: encrypted Room vault, settings, retention and backups (7974052)\n- Widgets: five Glance home-screen widgets with privacy-first, event-driven sync (270feac)\n- README, privacy and security policies, license and notices (670b2ca)\n- Product research, implementation plan and widget design (aa7023c)\n- Capture layer tests: parser, adapters, filters, engine pipeline and Robolectric snapshot checks (573b82e)\n- Capture layer: notification listener, snapshot parsing, app adapters and sensitive-content filter (941ef77)\n- CI and signed release pipeline (31ae54b)\n- Project skeleton: build config, domain contracts, module seams (03f6282)\n\n## Verify your download\n\n| | SHA-256 |\n|---|---|\n| `UnsendVault-1.0.15.apk` | `0b2a82f14d235cf34e18475f6a26867ab002b937cd671435c6b5f9789232c8a4` |\n| Signing certificate | `E4:43:C8:69:AA:CC:20:5D:6C:41:C9:17:F9:4A:6A:83:BE:4C:00:53:C2:4B:0D:24:6C:C7:74:FF:75:13:51:97` |\n| Signing certificate, as apksigner prints it | `e443c869aacc205d6c41c917f94a6a83be4c0053c24b0d246cc774ff75135197` |\n\n```sh\nsha256sum --check UnsendVault-1.0.15.apk.sha256\napksigner verify --print-certs UnsendVault-1.0.15.apk   # certificate SHA-256 digest must match the table\n```\n\nEvery release is signed with the same certificate; Android refuses an update signed by a different one.\n\n`mapping-1.0.15.zip` de-obfuscates crash stack traces and is not needed to use the app.\n\n\n<!-- Release notes generated using configuration in .github/release.yml at v1.0.15 -->\n\n\n\n**Full Changelog**: https://github.com/riyadmondol2006/UnsendVault/commits/v1.0.15"
+}

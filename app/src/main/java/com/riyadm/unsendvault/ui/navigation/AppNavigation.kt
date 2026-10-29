@@ -70,6 +70,7 @@ import com.riyadm.unsendvault.ui.settings.PackageManagerAppsSource
 import com.riyadm.unsendvault.ui.settings.ReliabilityRoute
 import com.riyadm.unsendvault.ui.settings.SettingsRoute
 import com.riyadm.unsendvault.ui.settings.SettingsViewModel
+import com.riyadm.unsendvault.ui.update.UpdatePrompts
 import com.riyadm.unsendvault.di.AppContainer
 import androidx.compose.ui.platform.LocalContext
 import com.riyadm.unsendvault.appContainer
@@ -141,6 +142,8 @@ private fun MainScaffold(widthSizeClass: WindowWidthSizeClass, onLockNow: () -> 
             )
         }
     }
+    // Opt-in update check: consent / update dialogs, once-per-process automatic check (unlocked main UI only).
+    UpdatePrompts()
     Row(Modifier.fillMaxSize()) {
         if (useRail) {
             NavigationRail {

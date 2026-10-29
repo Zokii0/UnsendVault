@@ -2,11 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- UnsendVault is offline-only: no INTERNET. Library-merged permissions we never use are stripped here and the
-         build fails (verifyPermissions*) if anything outside the allowlist appears in the merged manifest. -->
+    <!-- INTERNET is used only by the opt-in update check (update package, docs/UPDATES.md): one HTTPS GET to
+         api.github.com from the foreground UI. The archive never leaves the device. Library-merged permissions we never
+         use are stripped here and the build fails (verifyPermissions*) if anything outside the allowlist appears in the
+         merged manifest. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
-    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
 
     <!-- UI: lists launchable apps (labels/icons) in the per-app exclusion picker. Launcher intent only, never
          QUERY_ALL_PACKAGES. -->
@@ -39,6 +41,8 @@
         android:theme="@style/Theme.UnsendVault"
         android:enableOnBackInvokedCallback="true"
         android:localeConfig="@xml/locales_config"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="37">
 
         <activity

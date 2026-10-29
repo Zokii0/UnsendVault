@@ -73,8 +73,9 @@ max_lines=60
   echo "manager when Android asks. On Android 13 and later, Android may block Notification Access for an app installed"
   echo "this way until you allow it: Settings > Apps > UnsendVault > ⋮ > *Allow restricted settings*."
   echo
-  echo "UnsendVault has no INTERNET permission. It only archives what messaging apps show in notifications after you"
-  echo "grant Notification Access; see the README for what it cannot capture."
+  echo "Your archive never leaves your phone. The only network use is an optional update check (off until you allow it)."
+  echo "UnsendVault only archives what messaging apps show in notifications after you grant Notification Access; see the"
+  echo "README for what it cannot capture."
   echo
   echo "## What changed"
   echo

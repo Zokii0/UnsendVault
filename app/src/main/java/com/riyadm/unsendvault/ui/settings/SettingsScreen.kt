@@ -379,6 +379,8 @@ fun SettingsScreen(
                     modifier = Modifier.testTag(SettingsTestTags.DELETE_ALL),
                 )
 
+                UpdateSettingsSection()
+
                 // Help
                 SectionHeader(stringResource(R.string.settings_section_help))
                 ValueRow(

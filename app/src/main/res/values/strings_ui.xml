@@ -109,7 +109,7 @@
     <string name="onboarding_privacy_title">Private by design</string>
     <string name="onboarding_privacy_body">Your archive never leaves this device unless you export it yourself.</string>
     <string-array name="onboarding_privacy_points">
-        <item>Fully offline: the app has no internet permission at all.</item>
+        <item>The only network use is an optional update check, off until you allow it. It never sends anything from your archive.</item>
         <item>The archive is stored in an encrypted database whose key is protected by the Android Keystore.</item>
         <item>One-time codes and other sensitive text are filtered out before saving (you can change this).</item>
         <item>Exclude apps, auto-delete old messages, or delete everything at any time.</item>
@@ -420,7 +420,7 @@
     </string-array>
     <string name="about_privacy_title">Privacy</string>
     <string-array name="about_privacy">
-        <item>No internet permission: nothing is uploaded, no analytics, no ads.</item>
+        <item>Nothing from your archive is uploaded, no analytics, no ads. The only network use is an optional update check (Settings &gt; Updates).</item>
         <item>The archive is encrypted on the device with a key held by the Android Keystore.</item>
         <item>Android cloud backup is disabled; encrypted exports are created only when you ask.</item>
     </string-array>
