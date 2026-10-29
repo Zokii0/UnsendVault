@@ -1,0 +1,42 @@
+# One quiet batch of pull requests per ecosystem per week. Minor and patch updates are grouped; major updates (AGP,
+# Kotlin, Compose and friends) arrive on their own so they are looked at on purpose. Every merge to main publishes a
+# release, so merge these only when CI is green.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps"
+    groups:
+      # The Kotlin compiler plugins and KSP have to move together or the build breaks.
+      kotlin-toolchain:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "com.google.devtools.ksp*"
+      gradle-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"

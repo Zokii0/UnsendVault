@@ -1,0 +1,38 @@
+# Categories for GitHub's automatically generated release notes (pull requests are grouped by label).
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - skip-changelog
+    authors:
+      - dependabot
+      - dependabot[bot]
+      - github-actions
+      - github-actions[bot]
+  categories:
+    - title: Features
+      labels:
+        - enhancement
+        - feature
+    - title: Fixes
+      labels:
+        - bug
+        - fix
+    - title: Privacy and security
+      labels:
+        - privacy
+        - security
+    - title: Capture compatibility
+      labels:
+        - capture
+        - adapter
+    - title: Docs
+      labels:
+        - documentation
+        - docs
+    - title: Dependencies
+      labels:
+        - dependencies
+    - title: Other changes
+      labels:
+        - "*"

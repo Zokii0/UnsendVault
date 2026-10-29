@@ -1,0 +1,315 @@
+name: CI and Release
+
+# Every push to main is verified, signed and published as a GitHub Release (docs/RELEASING.md).
+# Pull requests and manual runs only verify. The emulator tests run weekly and on demand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'
+
+# Superseded pull request runs are cancelled. Runs for main are never cancelled, so a release that has started always
+# finishes; GitHub runs one job per group at a time and keeps only the newest waiting run. The event is part of the key
+# so the weekly schedule never displaces a waiting push.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Read-only by default. Only the release job gets `contents: write`.
+permissions:
+  contents: read
+
+# An explicit shell turns on `-o pipefail`; the default (`bash -e`) would let `a | tee` hide a failure of `a`.
+defaults:
+  run:
+    shell: bash
+
+env:
+  ANDROID_PLATFORM_PACKAGE: 'platforms;android-37.0'
+  ANDROID_BUILD_TOOLS_PACKAGE: 'build-tools;37.0.0'
+
+jobs:
+  verify:
+    name: Build, test and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The version comes from the commit count, so debug builds here match what a release would carry.
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Refuses a tampered gradle-wrapper.jar before it runs.
+      - uses: gradle/actions/wrapper-validation@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK platform 37 and build-tools 37.0.0
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          missing=()
+          [ -d "$ANDROID_HOME/platforms/android-37.0" ] || missing+=("$ANDROID_PLATFORM_PACKAGE")
+          [ -d "$ANDROID_HOME/build-tools/37.0.0" ] || missing+=("$ANDROID_BUILD_TOOLS_PACKAGE")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Installing: ${missing[*]}"
+            "$sdkmanager" --install "${missing[@]}" > /dev/null
+          else
+            echo "Platform 37 and build-tools 37.0.0 are already installed."
+          fi
+
+      - name: Show the version
+        run: |
+          scripts/compute-version.sh
+          ./gradlew -q :app:printVersion
+
+      # testDebugUnitTest: JVM/Robolectric tests. lintDebug: Android lint (abortOnError). verifyPermissions*: fails if the
+      # merged manifest of either build type requests INTERNET or anything outside the offline allowlist.
+      # assembleDebugAndroidTest: instrumented tests must at least compile on every change.
+      - name: Unit tests, lint, permission guard and assemble
+        run: >
+          ./gradlew
+          :app:testDebugUnitTest
+          :app:lintDebug
+          :app:verifyPermissionsDebug
+          :app:verifyPermissionsRelease
+          :app:assembleDebug
+          :app:assembleDebugAndroidTest
+          --stacktrace
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload the debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsendvault-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+  release:
+    name: Sign and publish the release
+    needs: verify
+    # Only pushes to main release, and not in forks (they have no signing key). Put [skip release] in the message of the
+    # newest commit of a push to publish nothing.
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && github.event.repository.fork == false
+      && !contains(github.event.head_commit.message, '[skip release]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the commit count and the previous tag both need the full history
+          persist-credentials: false # the build never sees a git credential; publishing uses GH_TOKEN directly
+
+      - uses: gradle/actions/wrapper-validation@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK platform 37 and build-tools 37.0.0
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          missing=()
+          [ -d "$ANDROID_HOME/platforms/android-37.0" ] || missing+=("$ANDROID_PLATFORM_PACKAGE")
+          [ -d "$ANDROID_HOME/build-tools/37.0.0" ] || missing+=("$ANDROID_BUILD_TOOLS_PACKAGE")
+          if [ "${#missing[@]}" -gt 0 ]; then "$sdkmanager" --install "${missing[@]}" > /dev/null; fi
+
+      - name: Work out the version
+        id: version
+        run: scripts/compute-version.sh --strict | tee -a "$GITHUB_OUTPUT"
+
+      # Secrets are handed only to the steps that need them, never to the whole job. A release is never unsigned or
+      # debug-signed, so a missing secret stops the run here instead of producing a lesser artifact.
+      - name: Restore and check the signing key
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          missing=()
+          for name in SIGNING_KEYSTORE_BASE64 SIGNING_STORE_PASSWORD SIGNING_KEY_ALIAS SIGNING_KEY_PASSWORD; do
+            [ -n "${!name//[[:space:]]/}" ] || missing+=("$name")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error title=Release signing secrets are missing::Add the repository secret(s): ${missing[*]}. See docs/RELEASING.md. Nothing was built or published."
+            exit 1
+          fi
+
+          keystore="$RUNNER_TEMP/unsendvault-release.jks"
+          (umask 077 && printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$keystore") \
+            || { echo "::error title=Invalid keystore secret::SIGNING_KEYSTORE_BASE64 is not valid base64. Create it with: base64 -w0 unsendvault-release.jks"; exit 1; }
+
+          # Sign a throwaway jar: proves the store password, alias and key password work before the long build starts.
+          probe="$RUNNER_TEMP/signing-probe"
+          mkdir -p "$probe"
+          echo probe > "$probe/probe.txt"
+          jar --create --file "$probe/probe.jar" -C "$probe" probe.txt
+          signed=true
+          jarsigner -keystore "$keystore" -storepass:env SIGNING_STORE_PASSWORD -keypass:env SIGNING_KEY_PASSWORD \
+            "$probe/probe.jar" "$SIGNING_KEY_ALIAS" > /dev/null 2>&1 || signed=false
+          rm -rf "$probe"
+          if [ "$signed" = false ]; then
+            echo "::error title=Signing key unusable::The keystore secret could not sign with the given alias and passwords. Check the four SIGNING_* secrets (docs/RELEASING.md)."
+            exit 1
+          fi
+
+          echo "SIGNING_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+
+      - name: Build the signed APK
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          UNSENDVAULT_REQUIRE_SIGNING: 'true'
+          UNSENDVAULT_VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          UNSENDVAULT_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: >
+          ./gradlew
+          :app:verifyPermissionsRelease :app:assembleRelease
+          --stacktrace
+
+      # apksigner (v2/v3, one non-debug signer, same cert as the keystore), aapt2 (package, version, not debuggable,
+      # no INTERNET, nothing outside the permission allowlist).
+      - name: Verify the signed APK
+        id: artifacts
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: >
+          scripts/verify-release.sh
+          --apk app/build/outputs/apk/release/app-release.apk
+          --version-name "$VERSION_NAME"
+          --version-code "$VERSION_CODE"
+
+      - name: Stage the release files and notes
+        id: stage
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          CERT_SHA256: ${{ steps.artifacts.outputs.cert_sha256 }}
+        run: |
+          mapping=()
+          if [ -f app/build/outputs/mapping/release/mapping.txt ]; then
+            mapping=(--mapping app/build/outputs/mapping/release/mapping.txt)
+          fi
+          scripts/stage-release.sh \
+            --version-name "$VERSION_NAME" \
+            --cert-sha256 "$CERT_SHA256" \
+            --apk app/build/outputs/apk/release/app-release.apk \
+            --out build/release-dist \
+            --notes-file build/release-notes.md \
+            "${mapping[@]}"
+
+      # Kept on the run as well, so the files survive even if publishing fails after this point.
+      - name: Upload the release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsendvault-release-${{ steps.version.outputs.version_name }}
+          path: |
+            build/release-dist/
+            build/release-notes.md
+          retention-days: 14
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          CERT_SHA256: ${{ steps.artifacts.outputs.cert_sha256 }}
+          APK_SHA256: ${{ steps.stage.outputs.apk_sha256 }}
+        run: |
+          flags=()
+          # .github/release.yml sorts GitHub's own generated notes into categories.
+          if [ -f .github/release.yml ]; then flags+=(--generate-notes); fi
+          scripts/publish-release.sh \
+            --version-name "$VERSION_NAME" \
+            --dist build/release-dist \
+            --notes-file build/release-notes.md \
+            "${flags[@]}"
+          {
+            echo "### UnsendVault $VERSION_NAME"
+            echo
+            echo "- Version code: $VERSION_CODE"
+            echo "- APK SHA-256: \`$APK_SHA256\`"
+            echo "- Signing certificate SHA-256: \`$CERT_SHA256\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/unsendvault-release.jks"
+
+  # Instrumented tests need an emulator. They are slow, so they run on demand and weekly rather than on every push.
+  instrumented:
+    name: Instrumented tests (emulator)
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK platform 37 and build-tools 37.0.0
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          missing=()
+          [ -d "$ANDROID_HOME/platforms/android-37.0" ] || missing+=("$ANDROID_PLATFORM_PACKAGE")
+          [ -d "$ANDROID_HOME/build-tools/37.0.0" ] || missing+=("$ANDROID_BUILD_TOOLS_PACKAGE")
+          if [ "${#missing[@]}" -gt 0 ]; then "$sdkmanager" --install "${missing[@]}" > /dev/null; fi
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+      - name: Upload instrumented test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumented-reports
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+          retention-days: 14
