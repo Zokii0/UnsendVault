@@ -56,5 +56,62 @@
             tools:node="remove" />
 
         <!-- WIDGET RECEIVERS (owned by the widget layer) -->
+        <!-- Glance widgets. Exported so the launcher/system can deliver APPWIDGET_* broadcasts; they only re-render.
+             updatePeriodMillis is 0 in every provider: refresh is event-driven (WidgetModule.startSync). -->
+        <receiver
+            android:name=".widget.ArchiveCountWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_count_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_count_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.RecentWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_recent_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_recent_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.FavoritesWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_favorites_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_favorites_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.AppSummaryWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_apps_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_apps_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.CaptureControlWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_capture_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_capture_info" />
+        </receiver>
     </application>
 </manifest>
