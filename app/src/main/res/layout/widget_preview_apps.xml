@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Picker preview (API 31+). Static, synthetic metadata only (no message text). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="@dimen/widget_padding">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp"
+        android:text="@string/widget_apps_title"
+        android:textColor="@color/widget_accent"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView style="@style/Widget.UnsendVault.PreviewRow" android:text="@string/widget_preview_row_1" />
+    <TextView style="@style/Widget.UnsendVault.PreviewRow" android:text="@string/widget_preview_row_2" />
+    <TextView style="@style/Widget.UnsendVault.PreviewRow" android:text="@string/widget_preview_row_3" />
+</LinearLayout>

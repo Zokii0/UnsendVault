@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget fallback palette (pre-API 31 and launchers without dynamic color). Mirrors WidgetColors.kt. -->
+<resources>
+    <color name="widget_background">#FFF4F7FB</color>
+    <color name="widget_on_background">#FF1A1C1F</color>
+    <color name="widget_on_background_variant">#FF44474E</color>
+    <color name="widget_accent">#FF1B3A5C</color>
+    <color name="widget_accent_container">#FFCFE6F2</color>
+</resources>

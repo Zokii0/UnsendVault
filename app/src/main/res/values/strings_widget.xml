@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget strings (owned by the widget layer). Widgets never render message text unless the user enabled
+     "Show content in widgets" and the app lock is off. -->
+<resources>
+    <!-- Widget picker labels and descriptions -->
+    <string name="widget_count_label">Archive count</string>
+    <string name="widget_count_description">Total archived messages, conversations and apps. Shows numbers only.</string>
+    <string name="widget_recent_label">Recent messages</string>
+    <string name="widget_recent_description">Latest archived activity by app. Message text stays hidden unless you allow it in settings.</string>
+    <string name="widget_favorites_label">Favorites</string>
+    <string name="widget_favorites_description">Your latest favorite messages. Message text stays hidden unless you allow it in settings.</string>
+    <string name="widget_apps_label">App summary</string>
+    <string name="widget_apps_description">Archived message counts for your most active apps.</string>
+    <string name="widget_capture_label">Capture control</string>
+    <string name="widget_capture_description">See whether UnsendVault is archiving and pause or resume it.</string>
+
+    <!-- Shared -->
+    <string name="widget_app_name">UnsendVault</string>
+    <string name="widget_open_app">Open UnsendVault</string>
+    <string name="widget_error_title">Can\'t load the archive</string>
+    <string name="widget_empty_title">No messages yet</string>
+    <string name="widget_empty_favorites">No favorites yet</string>
+    <string name="widget_empty_hint">Messages appear here once they\'re archived</string>
+    <string name="widget_locked_hint">App lock is on. Open UnsendVault to view.</string>
+    <string name="widget_content_hidden">Content hidden</string>
+    <string name="widget_just_now">Just now</string>
+    <string name="widget_separator"> · </string>
+    <string name="widget_icon_lock">App lock on</string>
+
+    <!-- Count widget -->
+    <plurals name="widget_messages_label">
+        <item quantity="one">message archived</item>
+        <item quantity="other">messages archived</item>
+    </plurals>
+    <plurals name="widget_conversations_count">
+        <item quantity="one">%s conversation</item>
+        <item quantity="other">%s conversations</item>
+    </plurals>
+    <plurals name="widget_apps_count">
+        <item quantity="one">%s app</item>
+        <item quantity="other">%s apps</item>
+    </plurals>
+    <plurals name="widget_messages_count">
+        <item quantity="one">%s message</item>
+        <item quantity="other">%s messages</item>
+    </plurals>
+    <plurals name="widget_favorites_count">
+        <item quantity="one">%s favorite</item>
+        <item quantity="other">%s favorites</item>
+    </plurals>
+    <plurals name="widget_recent_count">
+        <item quantity="one">%s recent</item>
+        <item quantity="other">%s recent</item>
+    </plurals>
+    <string name="widget_count_a11y">%1$s. %2$s. %3$s.</string>
+
+    <!-- Recent / Favorites -->
+    <string name="widget_recent_title">Recent</string>
+    <string name="widget_favorites_title">Favorites</string>
+    <string name="widget_apps_title">Top apps</string>
+
+    <!-- Capture control -->
+    <string name="widget_capture_title">Capture</string>
+    <string name="widget_capture_active">Active</string>
+    <string name="widget_capture_paused">Paused</string>
+    <string name="widget_capture_access_needed">Notification access needed</string>
+    <string name="widget_capture_disconnected">Listener disconnected</string>
+    <string name="widget_capture_action_pause">Pause</string>
+    <string name="widget_capture_action_resume">Resume</string>
+    <string name="widget_capture_action_grant">Grant access</string>
+    <string name="widget_capture_action_reconnect">Reconnect</string>
+    <string name="widget_capture_a11y_active">Capture is active. Double tap to pause.</string>
+    <string name="widget_capture_a11y_paused">Capture is paused. Double tap to resume.</string>
+    <string name="widget_capture_a11y_access">Notification access is needed. Double tap to open UnsendVault.</string>
+    <string name="widget_capture_a11y_disconnected">The notification listener is disconnected. Double tap to reconnect.</string>
+
+    <!-- Static previews (picker on API 31+; synthetic, never user data) -->
+    <string name="widget_preview_count_number">1,284</string>
+    <string name="widget_preview_count_detail">96 conversations · 7 apps</string>
+    <string name="widget_preview_row_1">Messages · 4 messages · 2 min ago</string>
+    <string name="widget_preview_row_2">Chat app · 2 messages · 15 min ago</string>
+    <string name="widget_preview_row_3">Mail · 1 message · 1 hr ago</string>
+</resources>
