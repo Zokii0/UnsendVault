@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -57,7 +57,12 @@ class HomeViewModel(
     private val accessGranted = MutableStateFlow(listenerStatus.isAccessGranted())
     private val selectedConversation = MutableStateFlow<Long?>(null)
 
-    private val apps = vault.observeAppSummaries()
+    // Drops filters for apps whose data no longer exists so the list never silently shows nothing. Runs only while
+    // [state] is collected (WhileSubscribed), not for the ViewModel's whole life: a stopped UI keeps no Room observer.
+    private val apps = vault.observeAppSummaries().onEach { list ->
+        val known = list.mapTo(HashSet()) { it.packageName }
+        if (known.isNotEmpty()) packageFilter.update { f -> f.filterTo(LinkedHashSet()) { it in known } }
+    }
     private val recent = packageFilter.flatMapLatest { vault.observeMessages(MessageQuery(packages = it, limit = RECENT_LIMIT)) }
     private val conversations = packageFilter.flatMapLatest { vault.observeConversations(it) }
 
@@ -84,15 +89,6 @@ class HomeViewModel(
             selectedConversationId = selectedConv?.takeIf { id -> convs.any { it.id == id } },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
-
-    init {
-        // Drop filters for apps whose data no longer exists so the list never silently shows nothing.
-        viewModelScope.launch {
-            apps.map { list -> list.mapTo(HashSet()) { it.packageName } }.collect { known ->
-                if (known.isNotEmpty()) packageFilter.update { f -> f.filterTo(LinkedHashSet()) { it in known } }
-            }
-        }
-    }
 
     fun selectTab(value: HomeTab) = tab.update { value }
 

@@ -51,8 +51,8 @@ class WhatsAppAdapter(placeholders: CapturePlaceholders) : BaseAdapter(
 class InstagramAdapter(placeholders: CapturePlaceholders) : BaseAdapter(
     placeholders, ID, setOf(KnownApps.INSTAGRAM, KnownApps.INSTAGRAM_LITE, KnownApps.THREADS), dedicatedMessenger = false,
 ) {
-    override fun isMessageNotification(s: NotificationSnapshot): Boolean =
-        super.isMessageNotification(s) || isDirectChannel(s.channelId)
+    override fun mayBeMessage(category: String?, channelId: String?, template: String?, hasMessages: Boolean): Boolean =
+        super.mayBeMessage(category, channelId, template, hasMessages) || isDirectChannel(channelId)
 
     override fun deletionMarker(text: String, sender: String?, knownNames: Collection<String>) =
         DeletionMarkerRules.matchAction(text, DeletionMarkerRules.INSTAGRAM_ACTIONS, sender, knownNames)

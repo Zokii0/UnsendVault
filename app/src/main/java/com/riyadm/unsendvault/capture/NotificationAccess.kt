@@ -82,6 +82,17 @@ object NotificationAccess {
     }
 }
 
+/** [ListenerControl] over the system APIs and the currently bound [VaultNotificationListener]. */
+class AndroidListenerControl(private val app: Context) : ListenerControl {
+    override fun isAccessGranted(): Boolean = NotificationAccess.isGranted(app)
+
+    override fun isConnected(): Boolean = ListenerConnectionState.connected.value
+
+    override fun requestUnbind(): Boolean = VaultNotificationListener.requestUnbindBound()
+
+    override fun requestRebind() = NotificationAccess.requestRebind(app)
+}
+
 /** [ListenerStatus] backed by the system's enabled-listener list and [ListenerConnectionState]. */
 class AndroidListenerStatus(context: Context) : ListenerStatus {
     private val app = context.applicationContext

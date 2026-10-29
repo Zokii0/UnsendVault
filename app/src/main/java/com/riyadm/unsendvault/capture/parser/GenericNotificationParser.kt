@@ -250,7 +250,9 @@ open class GenericNotificationParser(protected val placeholders: CapturePlacehol
         const val GENERIC_ID = "generic"
         private const val MAX_MARKER_LENGTH = 120
 
-        fun isMessagingStyle(s: NotificationSnapshot): Boolean =
-            SystemRedaction.isMessagingTemplate(s.template) || s.messages.isNotEmpty()
+        fun isMessagingStyle(s: NotificationSnapshot): Boolean = isMessagingStyle(s.template, s.messages.isNotEmpty())
+
+        fun isMessagingStyle(template: String?, hasMessages: Boolean): Boolean =
+            SystemRedaction.isMessagingTemplate(template) || hasMessages
     }
 }

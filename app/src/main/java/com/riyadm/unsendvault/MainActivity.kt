@@ -44,6 +44,9 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         setSecure(true)
         val container = appContainer
+        // Keeps the daily retention job in sync with the setting (the scheduler's watcher starts on first access).
+        // Done here rather than in Application.onCreate so listener-only cold starts never open DataStore/WorkManager.
+        container.appScope.launch { container.retentionScheduler }
         lockManager = AppLockManager.get(this)
         authenticator = BiometricLockAuthenticator(this)
         if (savedInstanceState == null) DeepLinks.offer(intent)

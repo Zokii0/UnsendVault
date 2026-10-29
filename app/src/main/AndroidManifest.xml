@@ -69,6 +69,19 @@
                 android:value="ongoing" />
         </service>
 
+        <!-- WorkManager is initialized on demand (UnsendVaultApp implements Configuration.Provider), so a cold start for
+             the notification listener does not open WorkManager's database or reconcile jobs. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <!-- Glance only needs WorkManager's normal scheduling, never a foreground service. -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

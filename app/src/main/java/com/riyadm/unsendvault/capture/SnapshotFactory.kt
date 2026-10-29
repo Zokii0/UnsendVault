@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
 import com.riyadm.unsendvault.capture.filter.SystemRedaction
+import com.riyadm.unsendvault.core.model.VaultSettings
 
 /**
  * Copies the fields UnsendVault needs out of a [StatusBarNotification] into a plain [NotificationSnapshot].
@@ -46,6 +47,30 @@ object SnapshotFactory {
     private const val KEY_DATA_MIME_TYPE = "type"
     private const val KEY_PERSON_NAME = "name"
 
+    /**
+     * Runs [CapturePreFilter] on [sbn] without building a snapshot: header fields first, then (only if those pass) the
+     * template string and the presence — not the contents — of the MessagingStyle message arrays.
+     */
+    fun preFilter(sbn: StatusBarNotification, filter: CapturePreFilter, settings: VaultSettings?): CapturePreFilter.Result {
+        val packageName = sbn.packageName ?: return CapturePreFilter.Result.OWN_PACKAGE
+        val notification = sbn.notification ?: return CapturePreFilter.Result.NOT_A_MESSAGE
+        val flags = notification.flags
+        val category = notification.category
+        val header = filter.checkHeader(packageName, flags, category, settings)
+        if (!header.accept) return header
+        val extras = notification.extras ?: return CapturePreFilter.Result.NOT_A_MESSAGE
+        return filter.checkContent(
+            packageName = packageName,
+            flags = flags,
+            category = category,
+            channelId = safe { notification.channelId },
+            template = templateOf(extras),
+            hasMessages = extras.has(EXTRA_MESSAGES),
+            hasHistoricMessages = extras.has(EXTRA_HISTORIC_MESSAGES),
+            settings = settings,
+        )
+    }
+
     /** Returns null for notifications that are cheap to reject: own package, ongoing/foreground, no extras. */
     fun fromStatusBarNotification(sbn: StatusBarNotification, ownPackage: String): NotificationSnapshot? {
         val packageName = sbn.packageName ?: return null
@@ -74,7 +99,7 @@ object SnapshotFactory {
         if (ongoing) return null
         val extras: Bundle = notification.extras ?: return null
 
-        val template = extras.string(EXTRA_TEMPLATE) ?: extras.string(EXTRA_COMPAT_TEMPLATE)
+        val template = templateOf(extras)
         val snapshot = NotificationSnapshot(
             packageName = packageName,
             key = key,
@@ -104,8 +129,14 @@ object SnapshotFactory {
             historicMessages = readMessages(extras.raw(EXTRA_HISTORIC_MESSAGES)),
             tickerText = safe { notification.tickerText?.toString() }?.clamp(),
         )
-        return snapshot.copy(looksSystemRedacted = SystemRedaction.looksRedacted(snapshot))
+        // Second allocation only in the rare redacted case.
+        return if (SystemRedaction.looksRedacted(snapshot)) snapshot.copy(looksSystemRedacted = true) else snapshot
     }
+
+    private fun templateOf(extras: Bundle): String? = extras.string(EXTRA_TEMPLATE) ?: extras.string(EXTRA_COMPAT_TEMPLATE)
+
+    /** Key presence only: does not deserialize the (possibly large) value. */
+    private fun Bundle.has(key: String): Boolean = safe { containsKey(key) } ?: false
 
     /** Parses an EXTRA_MESSAGES value (Parcelable[] of Bundles). Unknown shapes yield an empty list. */
     internal fun readMessages(raw: Any?): List<SnapshotMessage> {
@@ -161,7 +192,13 @@ object SnapshotFactory {
 
     private fun Bundle.textArray(key: String): List<String> {
         val value = raw(key) as? Array<*> ?: return emptyList()
-        return value.mapNotNull { (it as? CharSequence)?.toString()?.clamp() }.take(MAX_MESSAGES)
+        // Stop converting once MAX_MESSAGES lines are kept (same result as mapNotNull + take, fewer copies).
+        val out = ArrayList<String>(minOf(value.size, MAX_MESSAGES))
+        for (item in value) {
+            if (out.size >= MAX_MESSAGES) break
+            (item as? CharSequence)?.toString()?.clamp()?.let(out::add)
+        }
+        return out
     }
 
     private fun String.clamp(): String = if (length <= MAX_FIELD_LENGTH) this else substring(0, MAX_FIELD_LENGTH)

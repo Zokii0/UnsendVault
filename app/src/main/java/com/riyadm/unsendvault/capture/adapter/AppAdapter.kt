@@ -20,7 +20,16 @@ interface AppAdapter {
      * messengers claim everything they post (minus noise); mixed apps (Instagram, Facebook, Slack…) only claim
      * MessagingStyle / CATEGORY_MESSAGE notifications.
      */
-    fun isMessageNotification(s: NotificationSnapshot): Boolean
+    fun isMessageNotification(s: NotificationSnapshot): Boolean =
+        mayBeMessage(s.category, s.channelId, s.template, s.messages.isNotEmpty())
+
+    /**
+     * The same gate evaluated on raw notification fields, before a [NotificationSnapshot] is built (listener hot path,
+     * see [com.riyadm.unsendvault.capture.CapturePreFilter]). [hasMessages] is "EXTRA_MESSAGES is present", which is
+     * true whenever the snapshot's message list could be non-empty, so this never rejects what the full gate accepts.
+     * The default (true) is the conservative answer for adapters that only implement [isMessageNotification].
+     */
+    fun mayBeMessage(category: String?, channelId: String?, template: String?, hasMessages: Boolean): Boolean = true
 
     /** Parses [s]. Returning null (or throwing, or an empty [ParseOutcome.Parsed]) means "use the generic parser". */
     fun parse(s: NotificationSnapshot): ParseOutcome?
@@ -37,8 +46,8 @@ abstract class BaseAdapter(
 
     final override val adapterId: String get() = id
 
-    override fun isMessageNotification(s: NotificationSnapshot): Boolean =
-        dedicatedMessenger || isMessagingStyle(s) || s.category == TextRules.CATEGORY_MESSAGE
+    override fun mayBeMessage(category: String?, channelId: String?, template: String?, hasMessages: Boolean): Boolean =
+        dedicatedMessenger || isMessagingStyle(template, hasMessages) || category == TextRules.CATEGORY_MESSAGE
 
     override fun parse(s: NotificationSnapshot): ParseOutcome? = parseNotification(s)
 }

@@ -9,22 +9,22 @@ import androidx.glance.appwidget.GlanceAppWidgetReceiver
 abstract class VaultWidgetReceiver : GlanceAppWidgetReceiver() {
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        WidgetModule.onPlacementChanged()
+        WidgetModule.onPlacementChanged(context)
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-        WidgetModule.onPlacementChanged()
+        WidgetModule.onPlacementChanged(context)
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
-        WidgetModule.onPlacementChanged()
+        WidgetModule.onPlacementChanged(context)
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        WidgetModule.onPlacementChanged()
+        WidgetModule.onPlacementChanged(context)
     }
 }
 
