@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="160" height="160" role="img" aria-label="UnsendVault logo">
+  <title>UnsendVault</title>
+  <rect width="108" height="108" rx="26" fill="#1B3A5C"/>
+  <path fill="#E8F1FF" fill-rule="evenodd" d="M54,27a27,27 0,1 1,0 54a27,27 0,1 1,0 -54zM54,32a22,22 0,1 0,0 44a22,22 0,1 0,0 -44z"/>
+  <path fill="#7FD1C7" d="M52,24h4v6h-4zM52,78h4v6h-4zM24,52h6v4h-6zM78,52h6v4h-6z"/>
+  <path fill="#E8F1FF" d="M42,42h24a4,4 0,0 1,4 4v12a4,4 0,0 1,-4 4h-12l-7,6v-6h-5a4,4 0,0 1,-4 -4v-12a4,4 0,0 1,4 -4z"/>
+  <path fill="#1B3A5C" d="M47,49h14v3h-14zM47,54h9v3h-9z"/>
+</svg>

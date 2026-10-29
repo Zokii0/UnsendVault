@@ -1,4 +1,20 @@
-# UnsendVault
+<p align="center">
+  <img src="docs/assets/logo.svg" width="128" height="128" alt="UnsendVault app icon: a chat bubble inside a vault door">
+</p>
+
+<h1 align="center">UnsendVault</h1>
+
+<p align="center">
+  <b>Read deleted and unsent messages from WhatsApp, Instagram, Messenger and Telegram notifications.</b><br>
+  Offline, encrypted, open-source Android app. No ads, no trackers, no account.
+</p>
+
+<p align="center">
+  <a href="https://github.com/riyadmondol2006/UnsendVault/releases/latest"><img src="https://img.shields.io/github/v/release/riyadmondol2006/UnsendVault?label=download&amp;color=1B3A5C" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Android-8.0%2B-7FD1C7" alt="Android 8.0 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/riyadmondol2006/UnsendVault?color=1B3A5C" alt="License: Apache-2.0"></a>
+  <a href="https://github.com/riyadmondol2006/UnsendVault/actions/workflows/ci.yml"><img src="https://github.com/riyadmondol2006/UnsendVault/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+</p>
 
 An offline, encrypted archive of the message previews your messaging apps show in notifications. If someone deletes
 or unsends a message after its notification reached your phone, you can still read what the notification said.
