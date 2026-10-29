@@ -29,6 +29,25 @@ object WidgetModule {
     fun createRefresher(context: Context): WidgetRefresher = WidgetRefresher { engine?.requestRefresh() }
 
     /**
+     * Process-start entry point. Starts [startSync] only when at least one widget is placed (checked off the main
+     * thread with plain AppWidgetManager lookups by class *name*, so neither Glance nor the receivers are class-loaded
+     * and no DataStore/database is touched otherwise). A widget placed later starts sync through its receiver
+     * ([onPlacementChanged]). Also schedules the one-time picker-preview publication (API 35+), which is independent of
+     * placement.
+     */
+    fun startSyncIfPlaced(container: AppContainer) {
+        container.appScope.launch {
+            val anyPlaced = try {
+                WidgetRegistry.anyPlaced(container.context)
+            } catch (e: Exception) {
+                true // can't tell: fall back to the previous always-on behaviour (it observes nothing when none are placed)
+            }
+            if (anyPlaced) startSync(container)
+        }
+        WidgetPreviewPublisher.publishIfNeeded(container.context, container.appScope)
+    }
+
+    /**
      * Starts the event-driven (never polling) sync that refreshes widgets when archive data, privacy settings, capture
      * state or listener connection change. Idempotent. Nothing is observed while no widget is placed.
      */
@@ -36,6 +55,7 @@ object WidgetModule {
         synchronized(this) {
             if (engine != null) return
             val context = container.context
+            val screen = ScreenOnGate(context)
             engine = WidgetSyncEngine(
                 placedKinds = { WidgetRegistry.placedKinds(context) },
                 fingerprint = { kind ->
@@ -47,13 +67,20 @@ object WidgetModule {
                     )
                 },
                 render = { kind -> WidgetRegistry.render(context, kind) },
+                awaitVisible = screen::await,
             ).also { it.start(container.appScope) }
         }
-        WidgetPreviewPublisher.publishIfNeeded(container.context, container.appScope)
     }
 
-    internal fun onPlacementChanged() {
-        engine?.notifyPlacementChanged()
+    /** Called by the receivers when instances are added/updated/removed; starts sync on the first placed widget. */
+    internal fun onPlacementChanged(context: Context) {
+        val current = engine
+        if (current != null) {
+            current.notifyPlacementChanged()
+            return
+        }
+        val container = WidgetLoaders.containerOrNull(context) ?: return
+        startSync(container) // the new engine reads the placement itself
     }
 }
 
@@ -72,6 +99,23 @@ internal object WidgetRegistry {
         WidgetKind.FAVORITES -> FavoritesWidget()
         WidgetKind.APP_SUMMARY -> AppSummaryWidget()
         WidgetKind.CAPTURE -> CaptureControlWidget()
+    }
+
+    /** Receiver class names, kept in sync with [receiverClass] (unit-tested); used to avoid class-loading Glance. */
+    val RECEIVER_CLASS_NAMES: List<String> = listOf(
+        "com.riyadm.unsendvault.widget.ArchiveCountWidgetReceiver",
+        "com.riyadm.unsendvault.widget.RecentWidgetReceiver",
+        "com.riyadm.unsendvault.widget.FavoritesWidgetReceiver",
+        "com.riyadm.unsendvault.widget.AppSummaryWidgetReceiver",
+        "com.riyadm.unsendvault.widget.CaptureControlWidgetReceiver",
+    )
+
+    /** True when any UnsendVault widget is placed. One binder call per provider, nothing else. */
+    fun anyPlaced(context: Context): Boolean {
+        val manager = AppWidgetManager.getInstance(context) ?: return false
+        return RECEIVER_CLASS_NAMES.any { name ->
+            manager.getAppWidgetIds(ComponentName(context.packageName, name))?.isNotEmpty() == true
+        }
     }
 
     /** Synchronous binder call per provider; no Glance DataStore read. Empty on devices without app widgets. */

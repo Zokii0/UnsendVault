@@ -12,23 +12,42 @@ import com.riyadm.unsendvault.capture.filter.SensitiveContentFilter
 import com.riyadm.unsendvault.capture.parser.CapturePlaceholders
 import com.riyadm.unsendvault.di.AppContainer
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 
-/** Capture engine used by [VaultNotificationListener]. Both calls must return immediately (they only enqueue work). */
+/** Capture engine used by [VaultNotificationListener]. Every call must return immediately (they only enqueue work). */
 interface CaptureEngine {
     fun onPosted(snapshot: NotificationSnapshot)
     fun onRemoved(event: RemovalEvent)
+
+    /** Low-priority post from the catch-up pass over already-active notifications. */
+    fun onCatchUp(snapshot: NotificationSnapshot) = onPosted(snapshot)
+
+    /**
+     * True when [notificationKey] was ingested (or is queued) in this process. Lets the listener forward the removal of
+     * a notification whose final content no longer passes the pre-filter. Thread-safe.
+     */
+    fun isTracked(notificationKey: String): Boolean = false
 }
 
+/** Everything the listener needs, built once per process on the first callback. */
+class CaptureRuntime(
+    val engine: CaptureEngine,
+    val preFilter: CapturePreFilter,
+    val settings: CaptureSettingsCache,
+)
+
 object CaptureModule {
-    fun createEngine(container: AppContainer): CaptureEngine {
+    fun createRuntime(container: AppContainer): CaptureRuntime {
         val context = container.context
         val placeholders = placeholders(context)
-        return DefaultCaptureEngine(
+        val registry = AdapterRegistry.createDefault(placeholders)
+        val cache = container.captureSettings
+        container.settingsRepository // attaches the settings cache (see AppContainer)
+        val engine = DefaultCaptureEngine(
             scope = container.appScope,
             dispatcher = Dispatchers.Default.limitedParallelism(1),
-            // Latest persisted value: SettingsRepository.current may still be the default before DataStore loads.
-            settingsProvider = { container.settingsRepository.settings.first() },
+            // In-memory snapshot; until DataStore's first read completes this waits for the persisted value (never the
+            // possibly-default SettingsRepository.current).
+            settingsProvider = { cache.get() },
             sink = object : CaptureSink {
                 override suspend fun ingest(parsed: ParsedNotification, capturedAt: Long) {
                     container.vaultRepository.ingest(parsed, capturedAt)
@@ -38,12 +57,16 @@ object CaptureModule {
                     container.vaultRepository.recordRemoval(event)
                 }
             },
-            registry = AdapterRegistry.createDefault(placeholders),
+            registry = registry,
             labels = AppLabelResolver { pkg -> packageLabel(context, pkg) },
             sensitiveFilter = SensitiveContentFilter(placeholders),
             ownPackage = context.packageName,
         )
+        return CaptureRuntime(engine, CapturePreFilter(registry, context.packageName), cache)
     }
+
+    fun createPauseController(context: Context): CapturePauseController =
+        CapturePauseController(AndroidListenerControl(context.applicationContext))
 
     fun createListenerStatus(context: Context): ListenerStatus = AndroidListenerStatus(context)
 

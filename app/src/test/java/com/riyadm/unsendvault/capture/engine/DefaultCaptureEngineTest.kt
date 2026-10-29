@@ -48,6 +48,7 @@ class DefaultCaptureEngineTest {
         settings: () -> VaultSettings = { VaultSettings() },
         scope: CoroutineScope = backgroundScope,
         capacity: Int = DefaultCaptureEngine.DEFAULT_CAPACITY,
+        window: Long = 0L,
     ) = DefaultCaptureEngine(
         scope = scope,
         dispatcher = StandardTestDispatcher(testScheduler),
@@ -59,6 +60,9 @@ class DefaultCaptureEngineTest {
         ownPackage = own,
         clock = { 42L },
         capacity = capacity,
+        coalesceWindowMillis = window,
+        catchUpWindowMillis = window,
+        monotonicClock = { testScheduler.currentTime },
     )
 
     private val waMessage = snapshot(
@@ -140,7 +144,9 @@ class DefaultCaptureEngineTest {
         val sink = RecordingSink()
         val e = engine(sink)
         e.onPosted(waMessage)
-        e.onPosted(waMessage)
+        runCurrent()
+        e.onPosted(waMessage) // identical content after it was ingested: skipped
+        runCurrent()
         val updated = waMessage.copy(messages = waMessage.messages + msg("Alex Rivera", "Second", T0 + 1))
         e.onPosted(updated)
         runCurrent()

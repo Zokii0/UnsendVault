@@ -2,6 +2,8 @@ package com.riyadm.unsendvault.capture.engine
 
 import com.riyadm.unsendvault.capture.CaptureEngine
 import com.riyadm.unsendvault.capture.CaptureLog
+import com.riyadm.unsendvault.capture.CaptureStats
+import com.riyadm.unsendvault.capture.CaptureTrace
 import com.riyadm.unsendvault.capture.NotificationSnapshot
 import com.riyadm.unsendvault.capture.ParsedNotification
 import com.riyadm.unsendvault.capture.RemovalEvent
@@ -14,9 +16,9 @@ import com.riyadm.unsendvault.core.model.VaultSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Where processed captures go. Production wraps [com.riyadm.unsendvault.data.VaultRepository]. */
 interface CaptureSink {
@@ -27,14 +29,19 @@ interface CaptureSink {
 /**
  * snapshot → settings gates → adapter registry → sensitive filter → [CaptureSink].
  *
- * [onPosted] / [onRemoved] only enqueue into a bounded channel (oldest work dropped under pressure) so listener
- * callbacks return immediately. A single consumer on [dispatcher] processes items in order; every item is isolated
- * with try/catch so one bad notification never stops the pipeline.
+ * [onPosted] / [onRemoved] / [onCatchUp] only enqueue into a bounded [CoalescingQueue] so listener callbacks return
+ * immediately. Bursts of updates for one notification key (typing indicators, re-posts, "N new messages" counters)
+ * collapse into one item within [coalesceWindowMillis]; the latest snapshot wins. A single consumer on [dispatcher]
+ * processes items in order; every item is isolated with try/catch so one bad notification never stops the pipeline.
+ * The consumer suspends (no polling, no wake lock) while the queue is empty; the only timer is the coalescing window.
  */
 class DefaultCaptureEngine(
     scope: CoroutineScope,
     dispatcher: CoroutineDispatcher,
-    /** Latest persisted settings (production: `settingsRepository.settings.first()`, never the possibly-default snapshot). */
+    /**
+     * Settings used for each processed item. Production returns the in-memory snapshot kept fresh from DataStore and
+     * falls back to `settings.first()` until the first read completes (never the possibly-default snapshot).
+     */
     private val settingsProvider: suspend () -> VaultSettings,
     private val sink: CaptureSink,
     private val registry: AdapterRegistry,
@@ -43,27 +50,36 @@ class DefaultCaptureEngine(
     private val ownPackage: String,
     private val clock: () -> Long = System::currentTimeMillis,
     capacity: Int = DEFAULT_CAPACITY,
+    private val coalesceWindowMillis: Long = DEFAULT_COALESCE_WINDOW_MS,
+    private val catchUpWindowMillis: Long = DEFAULT_CATCH_UP_WINDOW_MS,
+    /** Monotonic milliseconds for the coalescing windows (virtual time in tests). */
+    private val monotonicClock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) : CaptureEngine {
 
-    private sealed interface Work {
-        data class Posted(val snapshot: NotificationSnapshot) : Work
-        data class Removed(val event: RemovalEvent) : Work
-    }
+    private val lock = Any()
 
-    private val queue = Channel<Work>(capacity, BufferOverflow.DROP_OLDEST)
+    /** Guarded by [lock]. */
+    private val queue = CoalescingQueue(capacity)
+    private val wakeups = Channel<Unit>(Channel.CONFLATED)
 
-    /** notificationKey → fingerprint of the last ingested content; skips identical re-posts. Consumer-confined. */
+    /** notificationKey → fingerprint of the last ingested content; skips identical re-posts. Guarded by [lock]. */
     private val lastIngested = object : LinkedHashMap<String, Int>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Int>?) = size > FINGERPRINT_CACHE_SIZE
     }
 
     init {
         scope.launch(dispatcher) {
-            for (work in queue) {
+            while (true) {
+                val work = synchronized(lock) { queue.next(monotonicClock()) }
+                if (work == null) {
+                    awaitWork()
+                    continue
+                }
+                CaptureStats.inc(CaptureStats.Counter.ITEMS_PROCESSED)
                 try {
                     when (work) {
-                        is Work.Posted -> handlePosted(work.snapshot)
-                        is Work.Removed -> handleRemoved(work.event)
+                        is CoalescingQueue.Work.Posted -> handlePosted(work.snapshot)
+                        is CoalescingQueue.Work.Removed -> handleRemoved(work.event)
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -74,27 +90,55 @@ class DefaultCaptureEngine(
         }
     }
 
-    override fun onPosted(snapshot: NotificationSnapshot) {
-        queue.trySend(Work.Posted(snapshot))
+    /** Suspends until new work arrives or the earliest pending item becomes due. */
+    private suspend fun awaitWork() {
+        val now = monotonicClock()
+        val due = synchronized(lock) { queue.nextDueAt(now) }
+        when {
+            due == null -> wakeups.receive()
+            due > now -> withTimeoutOrNull(due - now) { wakeups.receive() }
+        }
+    }
+
+    override fun onPosted(snapshot: NotificationSnapshot) = enqueuePost(snapshot, coalesceWindowMillis)
+
+    override fun onCatchUp(snapshot: NotificationSnapshot) = enqueuePost(snapshot, catchUpWindowMillis)
+
+    private fun enqueuePost(snapshot: NotificationSnapshot, window: Long) {
+        val result = synchronized(lock) { queue.post(snapshot, monotonicClock(), window, ::countDrop) }
+        if (result != CoalescingQueue.PostResult.ADDED) CaptureStats.inc(CaptureStats.Counter.QUEUE_COALESCED)
+        // A plain merge keeps the due time the consumer is already waiting for: no thread wake-up per update.
+        if (result != CoalescingQueue.PostResult.MERGED) wakeups.trySend(Unit)
     }
 
     override fun onRemoved(event: RemovalEvent) {
-        queue.trySend(Work.Removed(event))
+        synchronized(lock) { queue.remove(event, ::countDrop) }
+        wakeups.trySend(Unit)
     }
+
+    override fun isTracked(notificationKey: String): Boolean =
+        synchronized(lock) { lastIngested.containsKey(notificationKey) || queue.isPending(notificationKey) }
+
+    private fun countDrop() = CaptureStats.inc(CaptureStats.Counter.QUEUE_DROPPED_OVERFLOW)
 
     private suspend fun handlePosted(snapshot: NotificationSnapshot) {
         val settings = settingsProvider()
-        val parsed = process(snapshot, settings) ?: return
+        // Trace only the synchronous parse: a section must begin and end on the same thread.
+        val parsed = CaptureTrace.section("UV:parse") { process(snapshot, settings) } ?: return
         val fingerprint = 31 * parsed.messages.hashCode() + parsed.deletionMarkers.hashCode()
-        if (lastIngested[parsed.notificationKey] == fingerprint) return
+        if (synchronized(lock) { lastIngested[parsed.notificationKey] } == fingerprint) {
+            CaptureStats.inc(CaptureStats.Counter.INGEST_SKIPPED_IDENTICAL)
+            return
+        }
         sink.ingest(parsed, clock())
-        lastIngested[parsed.notificationKey] = fingerprint
+        CaptureStats.inc(CaptureStats.Counter.INGESTS)
+        synchronized(lock) { lastIngested[parsed.notificationKey] = fingerprint }
     }
 
     private suspend fun handleRemoved(event: RemovalEvent) {
         val settings = settingsProvider()
         if (!settings.captureEnabled || event.packageName == ownPackage || event.packageName in settings.excludedPackages) return
-        lastIngested.remove(event.notificationKey)
+        synchronized(lock) { lastIngested.remove(event.notificationKey) }
         sink.recordRemoval(event)
     }
 
@@ -134,6 +178,12 @@ class DefaultCaptureEngine(
 
     companion object {
         const val DEFAULT_CAPACITY = 256
+
+        /** Updates of one notification within this window are parsed and ingested once (latest wins). */
+        const val DEFAULT_COALESCE_WINDOW_MS = 500L
+
+        /** Catch-up items wait longer so live notifications go first. */
+        const val DEFAULT_CATCH_UP_WINDOW_MS = 2_000L
         private const val FINGERPRINT_CACHE_SIZE = 256
     }
 }
