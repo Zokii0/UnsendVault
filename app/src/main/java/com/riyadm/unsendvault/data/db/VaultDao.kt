@@ -104,6 +104,29 @@ interface VaultDao {
         preciseOnly: Int,
     ): MessageEntity?
 
+    /** Same text from the same sender within [from]..[to], closest to [timestamp] first. */
+    @Query(
+        """
+        SELECT * FROM messages WHERE conversation_id = :conversationId AND sender_key = :senderKey
+            AND normalized_text = :normalizedText AND message_timestamp BETWEEN :from AND :to
+        ORDER BY ABS(message_timestamp - :timestamp), id LIMIT 16
+        """,
+    )
+    suspend fun findSameTextNear(
+        conversationId: Long,
+        senderKey: String,
+        normalizedText: String,
+        timestamp: Long,
+        from: Long,
+        to: Long,
+    ): List<MessageEntity>
+
+    @Query(
+        "SELECT COUNT(*) FROM messages WHERE conversation_id = :conversationId AND sender_key = :senderKey " +
+            "AND message_timestamp = :timestamp",
+    )
+    suspend fun countAtPreciseIdentity(conversationId: Long, senderKey: String, timestamp: Long): Int
+
     @Insert
     suspend fun insertMessage(entity: MessageEntity): Long
 

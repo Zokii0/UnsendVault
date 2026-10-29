@@ -30,6 +30,13 @@ class VaultKeyManager(
     private val random: SecureRandom = SecureRandom(),
     private val retryDelaysMs: List<Long> = listOf(150, 600),
     private val sleeper: (Long) -> Unit = { Thread.sleep(it) },
+    /**
+     * Key placements tried in order (true = StrongBox). Default is the hardware-backed TEE only: on a Pixel 6 running
+     * Android 17 a StrongBox AES-GCM key generated fine but every decrypt failed with Keymaster TOO_MANY_OPERATIONS
+     * (reproduced 5/5 runs, see docs/TEST_REPORT.md), and StrongBox's few operation slots and high latency are a poor
+     * fit for a key the notification listener needs to be available at all times.
+     */
+    private val keyPlacements: List<Boolean> = listOf(false),
 ) {
     fun hasStoredKey(): Boolean = keyFile.exists()
 
@@ -79,9 +86,9 @@ class VaultKeyManager(
         val raw = ByteArray(RAW_KEY_BYTES).also(random::nextBytes)
         try {
             var lastError: Exception? = null
-            // StrongBox first; some OEM StrongBox implementations generate keys but fail at use time, so the wrap is
-            // verified by an immediate unwrap before anything is committed to disk.
-            for (preferStrongBox in listOf(true, false)) {
+            // Some Keystore implementations generate keys but fail at use time, so the wrap is verified by an immediate
+            // unwrap before anything is committed to disk; the next placement is tried on failure.
+            for (preferStrongBox in keyPlacements) {
                 try {
                     wrapper.createKey(preferStrongBox)
                     val blob = wrapper.wrap(raw)

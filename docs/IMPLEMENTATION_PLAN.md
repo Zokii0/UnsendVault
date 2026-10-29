@@ -200,13 +200,16 @@ for each CapturedMessage m in parsed.messages:
     senderKey = normalize(m.sender)            // case-folded, whitespace-collapsed, "" for self/unknown
     norm      = normalizeText(m.text)          // NFC, collapsed whitespace, trimmed
 
-    existing =
-        if m.hasPreciseTimestamp:
-            find message where (conv, senderKey, messageTimestamp == m.messageTimestamp)
-        else null
-    if existing == null:
-        existing = find newest message where (conv, senderKey, normalizedText == norm)
-                   and |messageTimestamp - m.messageTimestamp| <= 10 minutes
+    // "claimed" = rows already matched by an earlier message of this same notification
+    existing = first message where (conv, senderKey, normalizedText == norm)
+               and |messageTimestamp - m.messageTimestamp| <= 10 minutes
+               and id not in claimed, closest timestamp first
+    if existing == null and m.hasPreciseTimestamp
+            and this notification has exactly one message in slot (senderKey, m.messageTimestamp)
+            and the archive has exactly one row in that slot, not claimed
+            and that row's text is not shown anywhere in this notification for senderKey:
+        existing = that row                    // same slot, new text: an edit
+    if existing != null: claimed += existing.id
 
     if existing == null:
         insert message (revisionCount = 1, firstCapturedAt = lastUpdatedAt = capturedAt); inserted++
@@ -223,9 +226,17 @@ apply deletion markers (section 7)
 
 Notes:
 
-- The precise-timestamp match is what makes edits detectable: MessagingStyle keeps a message's timestamp when its
+- The precise-timestamp slot is what makes edits detectable: MessagingStyle keeps a message's timestamp when its
   text changes. Without a precise timestamp, a changed text cannot be told apart from a new message, so it is
   stored as new (never as an edit).
+- Matching by text first, with the "claimed" set, came out of on-device testing (see TEST_REPORT.md): a poster that
+  re-stamps the whole history on every update produced duplicates, and two different messages from one sender that
+  share a timestamp were merged into a false "edit". Now re-stamped history collapses onto the existing rows, a
+  sender who really sent "ok" twice keeps two rows, and an edit is only inferred when the slot is unambiguous.
+- Known trade-off: if an app drops an older identical message (same sender, same text, within 10 minutes) from its
+  history and then re-stamps the newer one, the two can collapse into one row.
+- Backup import (MERGE) uses a stricter rule: an imported row matches an exact twin (sender, text, timestamp) or the
+  single archived row in the same precise slot, so re-importing a file is idempotent.
 - A `SYSTEM_REDACTED` or `FILTERED_SENSITIVE` version never overwrites real text that was already stored; it is
   ignored for that message. A real text may replace a redacted placeholder (stored as an update).
 - `last_notification_key` is stored per message so a later removal event can be attributed.
@@ -280,7 +291,7 @@ its sync triggers; rebuilds the FTS index from existing rows (`INSERT INTO messa
 
 | Control | Implementation |
 |---|---|
-| Encryption at rest | SQLCipher database. A random 32-byte passphrase is generated once, wrapped with an AES-GCM key in the Android Keystore (StrongBox preferred, falls back when an OEM StrongBox fails at use time), and only the wrapped form is stored in app-private storage. |
+| Encryption at rest | SQLCipher database. A random 32-byte passphrase is generated once, wrapped with a hardware-backed (TEE) AES-256-GCM key in the Android Keystore. StrongBox is deliberately not used: on the reference Pixel 6 / Android 17 a StrongBox key generated fine but every decrypt failed with Keymaster `TOO_MANY_OPERATIONS` (5/5 runs, see TEST_REPORT.md), and the listener needs the key to be reliably available. Only the wrapped form is stored in app-private storage. |
 | No cloud copy | `allowBackup=false`, `fullBackupContent=false`, data extraction rules exclude all domains for cloud backup and device transfer. The Keystore key cannot leave the device, so a copied DB would be unreadable anyway. |
 | Key loss | If the Keystore key is gone (device reset, OEM Keystore bug), the app detects `KEY_LOST`, explains it, and offers to start a new empty archive or import an encrypted export. It never silently deletes. |
 | Encrypted export | Format v1: 45-byte header (`UVB` magic, format version, KDF id, PBKDF2-HMAC-SHA256 iteration count, creation time, 16-byte salt, 12-byte GCM nonce) followed by AES-256-GCM ciphertext of a gzipped JSON payload. The whole header is the GCM AAD, so any header change fails authentication. Wrong password and tampering are indistinguishable by design. Written only through SAF to a location the user picks. |

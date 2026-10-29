@@ -122,12 +122,13 @@ class RoomVaultRepository(
             val markerTexts = parsed.deletionMarkers
                 .groupBy({ it.packageName to it.conversationKey }, { TextNormalizer.normalize(it.markerText) })
 
+            val batch = BatchContext(parsed.messages)
             for (c in parsed.messages) {
                 val normalized = TextNormalizer.normalize(c.text)
                 if (normalized.isEmpty()) continue
                 if (markerTexts[c.packageName to c.conversationKey]?.contains(normalized) == true) continue
                 val conversation = upsertConversation(dao, c, parsed.appLabel, capturedAt)
-                when (ingestMessage(dao, conversation.id, c, normalized, parsed.notificationKey, capturedAt)) {
+                when (ingestMessage(dao, conversation.id, c, normalized, parsed.notificationKey, capturedAt, batch)) {
                     Outcome.INSERTED -> { counter.inserted++; touched += conversation.id }
                     Outcome.UPDATED -> { counter.updated++; touched += conversation.id }
                     Outcome.UNCHANGED -> counter.unchanged++
@@ -150,6 +151,26 @@ class RoomVaultRepository(
     }
 
     private enum class Outcome { INSERTED, UPDATED, UNCHANGED }
+
+    /**
+     * What the rest of the notification says, used to keep identity matching honest:
+     * - rows already matched by an earlier message of this notification are never matched twice, so a sender who
+     *   really sent "ok" twice keeps two rows;
+     * - several messages sharing one (sender, timestamp) slot are distinct messages, never an edit of each other.
+     */
+    private class BatchContext(messages: List<CapturedMessage>) {
+        val matchedIds = mutableSetOf<Long>()
+        private val slotCounts = messages.filter { it.hasPreciseTimestamp }
+            .groupingBy { Triple(it.conversationKey, TextNormalizer.senderKey(it.sender), it.messageTimestamp) }.eachCount()
+        private val textsBySender = messages
+            .groupBy({ it.conversationKey to TextNormalizer.senderKey(it.sender) }, { TextNormalizer.normalize(it.text) })
+            .mapValues { it.value.toSet() }
+
+        fun slotCount(c: CapturedMessage, senderKey: String) = slotCounts[Triple(c.conversationKey, senderKey, c.messageTimestamp)] ?: 0
+
+        fun senderStillShows(c: CapturedMessage, senderKey: String, normalized: String) =
+            textsBySender[c.conversationKey to senderKey]?.contains(normalized) == true
+    }
 
     private suspend fun upsertConversation(
         dao: VaultDao,
@@ -188,11 +209,13 @@ class RoomVaultRepository(
         normalized: String,
         notificationKey: String,
         capturedAt: Long,
+        batch: BatchContext,
     ): Outcome {
         val senderKey = TextNormalizer.senderKey(c.sender)
-        val existing = findIdentity(dao, conversationId, senderKey, normalized, c.messageTimestamp, c.hasPreciseTimestamp)
+        val existing = findIdentity(dao, conversationId, senderKey, normalized, c, batch)
+        existing?.let { batch.matchedIds += it.id }
         if (existing == null) {
-            dao.insertMessage(
+            batch.matchedIds += dao.insertMessage(
                 MessageEntity(
                     conversationId = conversationId,
                     packageName = c.packageName,
@@ -274,26 +297,32 @@ class RoomVaultRepository(
     }
 
     /**
-     * Precise: exact (conversation, sender, timestamp); falls back to an imprecise record with the same text nearby
-     * (the same message captured earlier from a non-MessagingStyle notification), which is then upgraded.
-     * Imprecise: same normalized text from the same sender within ±10 min (precise or not).
+     * Finds the stored row this captured message is a copy of, or null for a new message.
+     *
+     * 1. Same sender and normalized text within ±[IMPRECISE_WINDOW_MS], closest timestamp first, skipping rows already
+     *    claimed by this notification. This covers re-posts of the same history (exact timestamp), apps that re-stamp
+     *    old messages on every update, and upgrading a record first seen without a MessagingStyle timestamp.
+     * 2. Precise only: the same (sender, timestamp) slot with different text is an edit, but only when that slot holds
+     *    exactly one message both in this notification and in the archive, and the stored text is no longer shown for
+     *    that sender. Otherwise two different messages that share a timestamp would be merged into a false "edit".
      */
     private suspend fun findIdentity(
         dao: VaultDao,
         conversationId: Long,
         senderKey: String,
         normalized: String,
-        timestamp: Long,
-        precise: Boolean,
+        c: CapturedMessage,
+        batch: BatchContext,
     ): MessageEntity? {
-        val from = timestamp - IMPRECISE_WINDOW_MS
-        val to = timestamp + IMPRECISE_WINDOW_MS
-        return if (precise) {
-            dao.findByPreciseIdentity(conversationId, senderKey, timestamp)
-                ?: dao.findByTextIdentity(conversationId, senderKey, normalized, timestamp, from, to, preciseOnly = 0)
-        } else {
-            dao.findByTextIdentity(conversationId, senderKey, normalized, timestamp, from, to, preciseOnly = -1)
-        }
+        val timestamp = c.messageTimestamp
+        dao.findSameTextNear(
+            conversationId, senderKey, normalized, timestamp, timestamp - IMPRECISE_WINDOW_MS, timestamp + IMPRECISE_WINDOW_MS,
+        ).firstOrNull { it.id !in batch.matchedIds }?.let { return it }
+
+        if (!c.hasPreciseTimestamp || batch.slotCount(c, senderKey) != 1) return null
+        if (dao.countAtPreciseIdentity(conversationId, senderKey, timestamp) != 1) return null
+        return dao.findByPreciseIdentity(conversationId, senderKey, timestamp)
+            ?.takeIf { it.id !in batch.matchedIds && !batch.senderStillShows(c, senderKey, it.normalizedText) }
     }
 
     /**
@@ -442,8 +471,9 @@ class RoomVaultRepository(
                 )
             }
             val packageByRef = payload.conversations.associate { it.ref to it.packageName }
+            val claimed = mutableSetOf<Long>()
             for (m in payload.messages) {
-                mergeMessage(dao, idByRef.getValue(m.conversationRef), packageByRef.getValue(m.conversationRef), m)
+                mergeMessage(dao, idByRef.getValue(m.conversationRef), packageByRef.getValue(m.conversationRef), m, claimed)
             }
             dao.recomputeAllAggregates()
             dao.deleteEmptyConversations()
@@ -451,10 +481,29 @@ class RoomVaultRepository(
         }
     }
 
-    private suspend fun mergeMessage(dao: VaultDao, conversationId: Long, packageName: String, m: BackupMessage) {
+    /**
+     * Backup rows are finished records: an imported row matches an exact twin (same sender, text and timestamp) not
+     * already claimed by this import, else the single archived row in the same precise (sender, timestamp) slot, whose
+     * versions are then merged. Re-importing a file is idempotent and distinct rows always stay distinct.
+     */
+    private suspend fun mergeMessage(
+        dao: VaultDao,
+        conversationId: Long,
+        packageName: String,
+        m: BackupMessage,
+        claimed: MutableSet<Long>,
+    ) {
         val normalized = TextNormalizer.normalize(m.text)
         val senderKey = TextNormalizer.senderKey(m.sender)
-        val existing = findIdentity(dao, conversationId, senderKey, normalized, m.messageTimestamp, m.hasPreciseTimestamp)
+        val ts = m.messageTimestamp
+        val existing = dao.findSameTextNear(conversationId, senderKey, normalized, ts, ts, ts).firstOrNull { it.id !in claimed }
+            ?: if (m.hasPreciseTimestamp && dao.countAtPreciseIdentity(conversationId, senderKey, ts) == 1) {
+                // The archive holds one version of this exact message slot (e.g. edited later): merge versions.
+                dao.findByPreciseIdentity(conversationId, senderKey, ts)?.takeIf { it.id !in claimed }
+            } else {
+                null
+            }
+        existing?.let { claimed += it.id }
         val evidence = m.deletionEvidence?.takeIf { m.status == MessageStatus.POSSIBLY_DELETED.name }
         val kind = contentKindOf(m.contentKind)
         if (existing == null) {
@@ -481,6 +530,7 @@ class RoomVaultRepository(
                     lastRemovedAt = m.lastRemovedAt,
                 ),
             )
+            claimed += id
             val seen = HashSet<Pair<String, Long>>()
             m.revisions.forEach { r ->
                 if (seen.add(r.text to r.capturedAt)) {

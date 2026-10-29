@@ -202,7 +202,17 @@ shows the placeholder "Sensitive notification content hidden" after upgrading to
   framework resource `config_messaging_read_restriction_allowlist` to
   `["com.google.android.apps.pixel.relationships", "com.google.android.contacts"]`.
 - Among messaging apps only Google Messages was installed on that device (no WhatsApp, Instagram or Messenger).
-  Capture results from that device are recorded separately in [TEST_REPORT.md](TEST_REPORT.md).
+- **Google Messages SMS previews were readable.** When UnsendVault's listener connected, its catch-up pass archived
+  the text of two SMS notifications from Google Messages already in the shade, in full. So on this build the
+  restriction did not withhold plain SMS notification text from a third-party listener targeting API 37. Whether
+  it withholds end-to-end encrypted RCS, or other apps' messages, could not be tested (no RCS conversation and no
+  third-party messenger on the device).
+- **Android's OTP redaction did not trigger in our test.** With `cmd notification redact_otp_from_untrusted_listeners
+  true`, a MessagingStyle notification posted by `com.android.shell` with the text "Your verification code is
+  551207. Do not share it." reached UnsendVault's listener unredacted. The platform's detection may depend on the
+  posting app, the notification assistant's classification, or timing; either way it cannot be relied on, which
+  is why UnsendVault's own OTP filter is on by default (it caught the same text when enabled).
+- Full capture results from that device are recorded in [TEST_REPORT.md](TEST_REPORT.md).
 
 **Not verified**
 

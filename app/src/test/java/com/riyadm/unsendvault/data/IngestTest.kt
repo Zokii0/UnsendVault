@@ -225,4 +225,47 @@ class IngestTest : RoomTestBase() {
         assertEquals(Fx.LABEL, c.appLabel)
         assertEquals(c, repo.observeConversation(c.id).first())
     }
+
+    // Regression (found on a Pixel 6 / Android 17 with `cmd notification post -S messaging`): the poster re-stamps
+    // every message with the post time on each update, and gives all messages of one post the same timestamp.
+    @Test
+    fun restampedRepost_isDeduped_andNewMessageAdded() = runBlocking {
+        repo.ingest(parsed(msg("Draft is ready", sender = "Alex", ts = T0), msg("Will check", sender = "Sam", ts = T0)), T0)
+        val r = repo.ingest(
+            parsed(
+                msg("Draft is ready", sender = "Alex", ts = T0 + 30_000),
+                msg("Will check", sender = "Sam", ts = T0 + 30_000),
+                msg("Thanks!", sender = "Alex", ts = T0 + 30_000),
+            ),
+            T0 + 30_000,
+        )
+        assertEquals(IngestResult(1, 0, 2, 0), r)
+        val messages = all()
+        assertEquals(listOf("Draft is ready", "Thanks!", "Will check"), messages.map { it.text }.sorted())
+        assertTrue(messages.all { it.revisionCount == 1 })
+    }
+
+    @Test
+    fun twoMessagesSharingSenderAndTimestamp_areDistinct_notAnEdit() = runBlocking {
+        repo.ingest(parsed(msg("one", ts = T0), msg("two", ts = T0)), T0)
+        repo.ingest(parsed(msg("one", ts = T0), msg("two", ts = T0)), T0 + 1_000)
+        val messages = all()
+        assertEquals(listOf("one", "two"), messages.map { it.text }.sorted())
+        assertTrue(messages.all { it.revisionCount == 1 })
+    }
+
+    @Test
+    fun genuinelyRepeatedText_keepsBothCopies_acrossReposts() = runBlocking {
+        repo.ingest(parsed(msg("ok", ts = T0), msg("ok", ts = T0 + 2_000)), T0)
+        assertEquals(IngestResult(0, 0, 2, 0), repo.ingest(parsed(msg("ok", ts = T0), msg("ok", ts = T0 + 2_000)), T0 + 5_000))
+        assertEquals(2, all().size)
+    }
+
+    @Test
+    fun editStillDetected_whenOldTextNoLongerShown() = runBlocking {
+        repo.ingest(parsed(msg("meet at 5", ts = T0), msg("bring snacks", sender = "Sam", ts = T0)), T0)
+        val r = repo.ingest(parsed(msg("meet at 6", ts = T0), msg("bring snacks", sender = "Sam", ts = T0)), T0 + 1_000)
+        assertEquals(IngestResult(0, 1, 1, 0), r)
+        assertEquals(2, all().single { it.sender == "Alice" }.revisionCount)
+    }
 }

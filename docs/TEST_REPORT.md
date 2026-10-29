@@ -1,0 +1,115 @@
+# UnsendVault test report
+
+Results recorded on 2026-10-29 by riyadmondol2006. Everything below was actually executed; anything that was not run
+is listed under [Not tested](#not-tested). All message content used for testing and screenshots is synthetic
+(fictional names such as "Alex Rivera", "Project Team").
+
+## Test device
+
+| | |
+|---|---|
+| Device | Google Pixel 6 (`oriole`) |
+| Android | 17 (API 37), build `CP3A.261005.002.A1`, user/release-keys |
+| Notes | Rooted (KernelSU), so `adb shell` runs as uid 0. Synthetic notifications were therefore posted as uid 2000 (`su 2000 -c "cmd notification post …"`), i.e. from the real `com.android.shell` package, through the normal NotificationManager → listener path. The device has a screen-lock credential (not known to the tester). |
+| Messengers installed | Google Messages only. WhatsApp, Instagram and Messenger were **not** installed. |
+
+The request mentioned a Pixel 6 Pro; the connected device reports itself as a Pixel 6 (`oriole`).
+
+## Automated tests
+
+| Suite | Where | Result |
+|---|---|---|
+| JVM + Robolectric unit tests (`:app:testDebugUnitTest`) | Linux host, JDK 25, Robolectric SDK 26/30/34 | **282 run, 0 failed, 1 skipped** (an API 28+ `Person` test that cannot run on SDK 26) |
+| Instrumented tests (`:app:connectedDebugAndroidTest`) | Pixel 6, Android 17 | **23 run, 0 failed** |
+| Lint (`:app:lintDebug`) | host | 0 errors, 15 warnings (all `UnusedAttribute`: attributes ignored on older API levels) |
+| Offline/permission gate (`:app:verifyPermissionsDebug`, `…Release`) | host | pass: no INTERNET; only USE_BIOMETRIC, USE_FINGERPRINT, WAKE_LOCK, RECEIVE_BOOT_COMPLETED and the app-private dynamic-receiver permission |
+
+Unit test areas: generic parser and per-app adapters (WhatsApp, Instagram, Messenger/Facebook, Telegram/Signal,
+SMS and others, registry fallback), deletion-marker rules, sensitive/OTP filter, engine pipeline, snapshot building
+from real `Notification` objects, removal-reason mapping, listener status; Room ingest/dedupe/update history,
+deletion evidence, search (FTS + LIKE), deletes, retention policy and worker, DataStore settings, backup crypto
+(round trip, wrong password, tamper, truncation, version), backup round trip through Room, key manager, vault health,
+Room migration 1→2 from the exported schema; view models, lock state machine (fake clock), demo data; all five widget
+contents and privacy modes, widget loaders, debounced sync engine.
+
+Instrumented test areas (on the Pixel): Room `MigrationTestHelper` 1→2 on framework SQLite and on SQLCipher;
+SQLCipher at rest (no `SQLite format 3` header, no plaintext marker in db/-wal/-shm, wrong key fails); Android
+Keystore wrap/unwrap/tamper/delete; encrypted vault end to end incl. Keystore-key loss reported and reset recovering;
+backup export/import through a real `ContentResolver` file URI; capture of a real MessagingStyle notification object;
+access-settings intent resolution; Compose UI (onboarding, lock gate never composes archive content, lock without
+device credential offers a safe way out, home empty/paused/populated/app filter, search filtering, message detail
+with deletion evidence/removal/revisions/Android-redaction explanation, settings toggles, widget-content toggle
+disabled under app lock, export password validation); widget providers registered without polling, no data
+observed when no widget is placed.
+
+## Defects found on the device and fixed
+
+| # | Found by | Problem | Fix | Verified |
+|---|---|---|---|---|
+| 1 | Instrumented `KeystoreAndVaultTest` | StrongBox AES-GCM key generated fine but every decrypt failed with Keymaster `TOO_MANY_OPERATIONS` (reproduced 5/5 runs). Production only worked because the key manager silently fell back to TEE. | Wrapping key now uses the hardware-backed TEE by default (`VaultKeyManager.keyPlacements`). | 3/3 reruns pass; full suite 23/23 |
+| 2 | Manual E2E (reposting a conversation) | A poster that re-stamps every message on each update (as `cmd notification post` does) caused the earlier messages to be stored twice. | Identity matches same sender + same text within ±10 min first, never claiming one stored row twice per notification. | Unit regression tests + on device: re-posting 4 messages added only the 1 new one |
+| 3 | Manual E2E | Two different messages from one sender sharing a timestamp in one notification were merged into a single message with a false "2 versions" edit. | An edit is inferred only when the (sender, timestamp) slot is unambiguous in both the notification and the archive and the old text is no longer shown. | Unit regression tests + on device: no false versions; the genuine edit in the demo data still shows "Update history" |
+
+## Manual end-to-end tests on the Pixel 6 (Android 17)
+
+| Area | Steps | Result |
+|---|---|---|
+| Fresh install, onboarding | `pm clear`, launch | 5-step onboarding shows purpose, honest limitations (no server recovery, muted/hidden previews, media, Android 15/17 withholding), privacy, access, optional lock. Pass |
+| FLAG_SECURE default | `screencap` of the app with default settings | Fully black capture. Pass |
+| Grant Notification Access via system UI | "Grant notification access" → system screen → toggle → system "Allow" dialog | Opened the per-app `NotificationAccessDetailsActivity` directly; after Allow the listener appeared in `enabled_notification_listeners`; the app showed "Notification access is on". Pass |
+| Catch-up on connect | Listener connected with notifications already in the shade | Archived what was in the shade, including two real SMS previews from Google Messages (see Android 17 below). They were deleted with the "exclude app → also delete" flow and are not in any screenshot. Pass |
+| Capture MessagingStyle group | Shell posts "Project Team" with 2 messages | 2 messages in a group conversation, app label "Shell". Pass |
+| Dedupe / repost | Same conversation re-posted with history + 1–2 new messages | Before fix: duplicates and a false edit (defects 2, 3). After fix: only new messages added. Pass |
+| Per-app exclusion | Exclude Google Messages, choose "Delete" | Its 2 messages removed; picker lists apps from the archive first, then launcher apps. Pass |
+| Capture pause / resume (in app) | Pause, post, resume | Message posted while paused not saved; status card "Capture is paused" with Resume. Pass |
+| OTP filter (UnsendVault) | Post "Your verification code is 482913…" | Stored as "One-time code hidden by UnsendVault" ("Hidden by filter"); searching "902211" (another filtered code) gave 0 results. Pass |
+| Android OTP redaction | Filter off, `redact_otp_from_untrusted_listeners true` (as root), post OTP | The listener received the code **unredacted**. Platform redaction did not apply in this setup; UnsendVault's own filter is what protects users. Filter re-enabled and re-verified afterwards |
+| Notification removal | `cmd notification snooze` the conversation | Detail shows "Notification removed … This does not mean the message was deleted." Status unchanged. Pass |
+| Snooze expiry | Snoozed notification came back after 10 min | Re-captured without duplicating rows. Pass |
+| Favorites | Favorite a message | Appears in Favorites; survives export/import. Pass |
+| Search | "draft" | 1 correct result with filters (app, conversation, dates, favorites, possibly deleted) available. Pass |
+| Revoke access | `cmd notification disallow_listener` | Status card: "Capture is off: no notification access" + grant button. Pass |
+| Regrant access | `cmd notification allow_listener` | "Capture is active"; new messages captured; a message posted while revoked but still in the shade was archived by the catch-up after regrant (i.e. only after access was granted again). Pass |
+| Battery Saver | `cmd power set-mode 1`, unplugged | Message captured. Pass |
+| Process killed (OEM/LMK-style) under Battery Saver | `kill -9` the app process, do not open the app, post | System rebound the listener in a new process (pid 8847 → 11888); message captured. Pass. Battery Saver restored to off |
+| Reboot | `adb reboot`; post before first unlock; owner unlocked; post again without opening the app | Before unlock: app not running (credential-encrypted storage locked, expected). After unlock: listener process started by the system on its own; both messages archived. Pass |
+| Retention job | `dumpsys jobscheduler`; forced run | One WorkManager job `RetentionWorker` with constraints BATTERY_NOT_LOW + IDLE, no network; 0 alarms registered by the app. Forced run: "Retention removed 0 message(s)", result SUCCESS (all data was newer than 30 days; age-based deletion is covered by unit tests). Pass |
+| Widgets: picker | Pixel Launcher widget picker | All five widgets listed with descriptions and generated previews (synthetic data). Pass |
+| Widget: Archive count | Placed on home screen | Numbers only; updated by itself from 13 to 14 after a capture (event-driven, no polling). Pass |
+| Widget: Capture control | Placed; tapped twice | Pause from widget → message not saved; resume → next message saved; TalkBack text "Capture is paused. Double tap to resume." Pass |
+| Widget: Recent | Placed (page 2) | Default shows "Shell · 14 recent · 1 min. ago" (no names or text). After enabling "Show message text in widgets" it showed sender + preview within ~4 s; setting turned back off. Pass |
+| Widgets: Favorites, App summary | — | Seen in the picker with previews; not placed on the home screen (no free space). Content covered by unit tests |
+| Demo data + rendering | Debug "Insert synthetic demo data" | Chats, possibly-deleted evidence ("WhatsApp showed 'This message was deleted' … strong hint, not proof"), update history ("2 versions", earlier version kept), media placeholders, Material You colors. Pass |
+| Encrypted export (SAF) | Settings → Export → password → system "Save" picker → Downloads | 1,477-byte `.uvbackup` file; header `UVB`; none of the synthetic strings present; 7.88 bits/byte entropy; "Last export" updated. Pass |
+| Import (SAF) wrong password | Import → pick file → wrong password | "Wrong password, or the file isn't an UnsendVault backup." Archive untouched. Pass |
+| Import (SAF) after delete-all | Delete all → import with right password | "Imported 18 messages in 6 conversations"; possibly-deleted evidence and favorite preserved. About 5.6 s including UI polling (PBKDF2 310k iterations). Pass |
+| App lock enable | Settings → App lock | System BiometricPrompt "Unlock UnsendVault" with fingerprint and "Use PIN". Cancel leaves app lock off. Pass (successful unlock needs the owner's credential; the locked state is covered by the instrumented Compose test) |
+| Secure screen toggle | Turn off for screenshots, back on | Screenshots possible only while off; after re-enabling, capture is fully black again. Pass |
+| Release build (R8) smoke test | `assembleRelease`, signed locally with a throwaway debug key, installed side by side | Permissions: no INTERNET. Cold start 239 ms. Onboarding, capture, SQLCipher DB, export, and import of the debug build's backup (18 messages merged) all worked with no crash or serialization error. Uninstalled afterwards so it cannot block the real signed release |
+
+### Android 17 observations (this device and build only)
+
+- The framework overlay `com.google.android.overlay.messagingreadrestrictionallowlist` sets
+  `config_messaging_read_restriction_allowlist` to `com.google.android.apps.pixel.relationships` and
+  `com.google.android.contacts`.
+- Despite that, Google Messages SMS notification text reached UnsendVault's listener in full. End-to-end encrypted
+  RCS and third-party messengers could not be tested.
+- `redact_otp_from_untrusted_listeners true` did not redact an OTP posted by `com.android.shell` before it reached
+  the listener.
+
+## Not tested
+
+- **WhatsApp, WhatsApp Business, Instagram, Messenger, Telegram, Signal and other third-party messengers on a real
+  device**: none were installed. Their adapters, noise filtering and deletion markers ("This message was deleted",
+  "unsent a message") are covered only by unit tests built from synthetic snapshots. Real marker wording, localization
+  and notification structure may differ by app version.
+- End-to-end encrypted RCS in Google Messages under Android 17's restriction.
+- Completing an app-lock unlock with biometrics/PIN on the device, and relock after timeout (owner credential
+  required). The lock gate and state machine are covered by instrumented and unit tests.
+- Placing the Favorites and App summary widgets on a home screen; OEM launchers (One UI, MIUI, etc.).
+- Other devices and Android versions (API 26–36), tablets and foldables, OEM ROMs. The code gates APIs by
+  version and the unit tests run on Robolectric SDK 26/30/34, but no physical device other than the Pixel 6 was used.
+- Large font scale, RTL and TalkBack walkthroughs on the device.
+- Retention actually deleting old messages on the device (all data was newer than the 30-day cutoff); covered by
+  unit tests.
+- The signed release from CI: see the GitHub Actions run and release page for that build.

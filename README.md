@@ -13,7 +13,9 @@ of the **text that notifications showed**, on your phone, from the moment you gr
 It **can**:
 
 - archive message previews from WhatsApp, Instagram, Messenger, Telegram, Signal, Google Messages and other apps that
-  post message notifications, grouped by app and conversation, searchable;
+  post message notifications, grouped by app and conversation, searchable. (Verified on a Pixel 6 / Android 17 with
+  Google Messages SMS and synthetic MessagingStyle notifications; the third-party messenger adapters are so far
+  covered by unit tests only. See [docs/TEST_REPORT.md](docs/TEST_REPORT.md).);
 - keep earlier versions when a notification's text for the same message changes ("updated");
 - mark a message **possibly deleted** when the source app itself showed a marker such as "This message was deleted"
   or "unsent a message" and it matches exactly one archived message. The marker is shown as the evidence.
@@ -24,8 +26,9 @@ It **cannot**:
 - read chats you have **open on screen** (apps usually post no notification for them), chats you **muted** if the app
   posts nothing for them, or apps where **previews are hidden** ("New message");
 - save **photos, videos, voice notes or files**; you get a placeholder such as "Photo";
-- read content Android withholds from apps like this one: one-time codes on Android 15+, and possibly end-to-end
-  encrypted messages on Android 17+ (Google lists "Restricted message access" without documenting the details; see
+- read content Android withholds from apps like this one: Android 15+ may hide one-time codes (in our test it did
+  not, which is why UnsendVault's own code filter is on by default), and Android 17+ may withhold end-to-end
+  encrypted messages (Google lists "Restricted message access" without documenting the details; see
   [docs/PRODUCT_RESEARCH.md](docs/PRODUCT_RESEARCH.md#54-android-17-api-37-message-access-restrictions));
 - tell whether a message was deleted just because its notification disappeared. Dismissing or reading a message also
   removes notifications, so that is never treated as deletion;
@@ -49,6 +52,18 @@ see [Reliability](#reliability).
 - Material 3, light/dark/AMOLED, dynamic color on Android 12+
 
 Requires Android 8.0 (API 26) or newer.
+
+## Screenshots
+
+Synthetic demo data only.
+
+| Archive | Conversation | Possibly deleted |
+|---|---|---|
+| <img src="docs/screenshots/01-archive-chats.png" width="240" alt="Archive with conversations from several apps"> | <img src="docs/screenshots/02-conversation.png" width="240" alt="Conversation timeline"> | <img src="docs/screenshots/03-possibly-deleted-detail.png" width="240" alt="Message marked possibly deleted with the app's own marker as evidence"> |
+
+| Update history | Search | Settings |
+|---|---|---|
+| <img src="docs/screenshots/04-update-history.png" width="240" alt="Message with an earlier version kept"> | <img src="docs/screenshots/05-search.png" width="240" alt="Search with filters"> | <img src="docs/screenshots/06-settings.png" width="240" alt="Settings"> |
 
 ## Install
 
@@ -127,6 +142,7 @@ A signed release build needs your own key (`keystore.properties` or the `SIGNING
 - [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md): architecture, data flow, algorithms, security, testing
 - [docs/WIDGET_DESIGN.md](docs/WIDGET_DESIGN.md): widgets
 - [docs/RELEASING.md](docs/RELEASING.md): CI, signing, versions, verification
+- [docs/TEST_REPORT.md](docs/TEST_REPORT.md): what was tested on a real device, defects found, and what was not tested
 - [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md)
 
 ## License

@@ -82,7 +82,7 @@ class VaultKeyManagerTest {
         assertEquals(67, p1.size)
         val s = String(p1, Charsets.US_ASCII)
         assertTrue(s.matches(Regex("x'[0-9a-f]{64}'")))
-        assertEquals(true, wrapper.createdWithStrongBox)
+        assertEquals(false, wrapper.createdWithStrongBox) // TEE by default
         // The raw key never appears in the key file.
         assertFalse(String(file.readBytes(), Charsets.ISO_8859_1).contains(s.substring(2, 20)))
         assertArrayEquals(p1, manager().loadOrCreatePassphrase(databaseExists = true))
@@ -91,7 +91,8 @@ class VaultKeyManagerTest {
     @Test
     fun strongBoxFailure_fallsBackToTee() {
         wrapper.strongBoxFails = true
-        manager().loadOrCreatePassphrase(false)
+        VaultKeyManager(file, wrapper, SecureRandom(), retryDelaysMs = listOf(1, 1), sleeper = {}, keyPlacements = listOf(true, false))
+            .loadOrCreatePassphrase(false)
         assertEquals(false, wrapper.createdWithStrongBox)
     }
 

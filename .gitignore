@@ -12,5 +12,4 @@
 *.jks
 *.keystore
 keystore.properties
-/.claude/
 /test-artifacts/tmp/

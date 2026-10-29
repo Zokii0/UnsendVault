@@ -40,7 +40,7 @@ class KeystoreAndVaultTest {
     @Test
     fun keystoreWrapUnwrap_roundTrip_tamper_delete() {
         val wrapper = AndroidKeystoreKeyWrapper(alias)
-        wrapper.createKey(preferStrongBox = true) // falls back to TEE when StrongBox is missing/broken
+        wrapper.createKey(preferStrongBox = false) // production placement (TEE); see VaultKeyManager.keyPlacements
         assertTrue(wrapper.keyExists())
         val secret = ByteArray(32).also(SecureRandom()::nextBytes)
         val blob = wrapper.wrap(secret)
