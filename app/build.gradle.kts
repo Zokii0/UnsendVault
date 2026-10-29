@@ -103,7 +103,8 @@ android {
                 storePassword = signingValue("storePassword", "SIGNING_STORE_PASSWORD")
                 keyAlias = signingValue("keyAlias", "SIGNING_KEY_ALIAS")
                 keyPassword = signingValue("keyPassword", "SIGNING_KEY_PASSWORD")
-                enableV1Signing = true
+                // minSdk 26 verifies v2/v3 only; a v1 (JAR) signature would add ~100 KB of per-file digests.
+                enableV1Signing = false
                 enableV2Signing = true
                 enableV3Signing = true
             }
@@ -138,6 +139,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    androidResources {
+        // The UI is English-only; drop the ~80 library translations (AppCompat, Compose, Biometric, Glance...).
+        // Side effect: library-provided text such as BiometricPrompt's fallback strings is English on every device.
+        localeFilters += listOf("en")
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -158,8 +165,18 @@ android {
 
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/LICENSE*", "/META-INF/NOTICE*")
-        // SQLCipher ships 16 KB-aligned native libraries; keep them uncompressed so they can be mapped directly.
-        jniLibs.useLegacyPackaging = false
+        resources.excludes += setOf(
+            // kotlinx-coroutines-debug agent data; only read when the debug agent is installed (never in the app).
+            "/DebugProbesKt.bin",
+            // Metadata for kotlin-reflect, which the app does not ship (no kotlin.reflect.full usage).
+            "/kotlin/**.kotlin_builtins",
+            // AndroidX library version stamps; informational only, not read at runtime.
+            "/META-INF/*.version",
+        )
+        // Compress native libraries (extracted at install, extractNativeLibs=true). The only libraries left are tiny
+        // AndroidX helpers whose ELF segments are 16 KB-aligned, so they load on 16 KB-page devices; storing them
+        // uncompressed would cost ~40 KB of lost compression plus up to 16 KB of zip-alignment padding per file.
+        jniLibs.useLegacyPackaging = true
     }
 
     sourceSets {
