@@ -72,7 +72,8 @@ jobs:
           ./gradlew -q :app:printVersion
 
       # testDebugUnitTest: JVM/Robolectric tests. lintDebug: Android lint (abortOnError). verifyPermissions*: fails if the
-      # merged manifest of either build type requests INTERNET or anything outside the offline allowlist.
+      # merged manifest of either build type requests a network-state permission or anything outside the allowlist
+      # (INTERNET is allowed only for the opt-in update check).
       # assembleDebugAndroidTest: instrumented tests must at least compile on every change.
       - name: Unit tests, lint, permission guard and assemble
         run: >
@@ -196,7 +197,7 @@ jobs:
           --stacktrace
 
       # apksigner (v2/v3, one non-debug signer, same cert as the keystore), aapt2 (package, version, not debuggable,
-      # no INTERNET, nothing outside the permission allowlist).
+      # no network-state permission, nothing outside the permission allowlist; INTERNET only for the update check).
       - name: Verify the signed APK
         id: artifacts
         env:

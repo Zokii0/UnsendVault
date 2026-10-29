@@ -6,8 +6,9 @@
 #     certificate is not the Android debug certificate
 #   * when the keystore is given, the APK certificate is the one in that keystore (the build really used the CI key)
 #   * the APK carries the expected application id, versionName and versionCode, and is not debuggable
-#   * the APK declares no INTERNET (or other network) permission and no permission outside UnsendVault's allowlist
-#     (the same allowlist the Gradle task verifyPermissions<Variant> enforces on the merged manifest)
+#   * the APK declares no network-state permission and no permission outside UnsendVault's allowlist (the same
+#     allowlist the Gradle task verifyPermissions<Variant> enforces on the merged manifest); INTERNET is allowed only
+#     for the opt-in update check
 #
 # Usage: scripts/verify-release.sh --apk FILE --version-name 1.0.57 --version-code 57
 # Environment:
@@ -18,6 +19,7 @@ set -euo pipefail
 
 expected_package=com.riyadm.unsendvault
 allowed_permissions=(
+  android.permission.INTERNET # update check only (opt-in)
   android.permission.USE_BIOMETRIC
   android.permission.USE_FINGERPRINT
   android.permission.WAKE_LOCK
@@ -25,7 +27,6 @@ allowed_permissions=(
   "$expected_package.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 )
 network_permissions=(
-  android.permission.INTERNET
   android.permission.ACCESS_NETWORK_STATE
   android.permission.ACCESS_WIFI_STATE
   android.permission.CHANGE_NETWORK_STATE
@@ -113,8 +114,12 @@ heading "Permissions"
 # Declared permissions only ("uses-permission" and "uses-permission-sdk-23"); "uses-implied-permission" lines are
 # aapt2's guesses for very old target SDKs and are not in the manifest.
 mapfile -t declared < <(sed -n "s/^uses-permission\(-sdk-23\)\{0,1\}: name='\([^']*\)'.*/\2/p" "$work/badging.txt" | sort -u)
+network_declared=0
 for permission in "${network_permissions[@]}"; do
-  if printf '%s\n' "${declared[@]}" | grep -qxF "$permission"; then problem "the APK declares $permission; UnsendVault must stay offline"; fi
+  if printf '%s\n' "${declared[@]}" | grep -qxF "$permission"; then
+    problem "the APK declares $permission; UnsendVault never needs network-state access"
+    network_declared=1
+  fi
 done
 for permission in "${declared[@]}"; do
   [[ -n $permission ]] || continue
@@ -124,7 +129,7 @@ for permission in "${declared[@]}"; do
     problem "the APK declares $permission, which is outside the allowlist"
   fi
 done
-if ! printf '%s\n' "${declared[@]}" | grep -qxF android.permission.INTERNET; then pass "no INTERNET permission"; fi
+if [[ $network_declared -eq 0 ]]; then pass "no network-state permission"; fi
 
 # --- result ------------------------------------------------------------------------------------------------------
 echo

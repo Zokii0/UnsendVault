@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Opt-in update check (update package, ui/update, ui/settings/UpdateSettingsSection). See docs/UPDATES.md. -->
+<resources>
+    <!-- Consent dialog, shown once on the main screen after onboarding. -->
+    <string name="update_consent_title">Check for updates automatically?</string>
+    <string name="update_consent_body">UnsendVault can contact GitHub (api.github.com) at most once a day while you use the app to see if a newer version exists.\n\nGitHub sees your IP address and the app version, like any website visit. Nothing from your archive is ever sent.\n\nYou can change this at any time in Settings.</string>
+    <string name="update_consent_allow">Allow</string>
+    <string name="update_consent_not_now">Not now</string>
+
+    <!-- Update dialog. -->
+    <string name="update_available_title">UnsendVault %1$s is available</string>
+    <string name="update_current_version">You have %1$s.</string>
+    <string name="update_notes_heading">What changed</string>
+    <string name="update_verify_hint">Download opens the APK in your browser; you install it yourself. The release page lists its SHA-256 checksum and signing certificate so you can verify the file, and Android only installs it over this app if it is signed with the same key.</string>
+    <string name="update_no_apk_hint">This release has no APK attached; open the release page for details.</string>
+    <string name="update_action_download">Download</string>
+    <string name="update_action_release_page">Release page</string>
+    <string name="update_action_later">Later</string>
+    <string name="update_action_skip">Skip this version</string>
+    <string name="update_open_failed">No browser is available to open the link.</string>
+
+    <!-- Settings section. -->
+    <string name="settings_section_updates">Updates</string>
+    <string name="update_auto_title">Check for updates automatically</string>
+    <string name="update_auto_summary">At most once a day while you use the app. Only contacts api.github.com; nothing from your archive is sent.</string>
+    <string name="update_auto_summary_debug">Automatic checks never run in debug builds. Use Check now to test.</string>
+    <string name="update_check_now">Check now</string>
+    <string name="update_check_now_summary">Contacts GitHub once to see if a newer version exists.</string>
+    <string name="update_show_update">Show update</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_result_up_to_date">You\'re up to date (%1$s)</string>
+    <string name="update_result_available">Version %1$s is available</string>
+    <string name="update_result_offline">Couldn\'t reach GitHub</string>
+    <string name="update_result_rate_limited">GitHub rate limit reached, try later</string>
+    <string name="update_result_invalid">GitHub sent an unexpected response</string>
+    <string name="update_version_info">Installed version: %1$s · Last checked: %2$s</string>
+    <string name="update_never_checked">never</string>
+</resources>

@@ -10,6 +10,8 @@ import com.riyadm.unsendvault.data.RetentionScheduler
 import com.riyadm.unsendvault.data.SettingsRepository
 import com.riyadm.unsendvault.data.VaultRepository
 import com.riyadm.unsendvault.data.WidgetRefresher
+import com.riyadm.unsendvault.update.UpdateController
+import com.riyadm.unsendvault.update.UpdateModule
 import com.riyadm.unsendvault.widget.WidgetModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,4 +34,7 @@ class AppContainer(context: Context) {
     val listenerStatus: ListenerStatus by lazy { CaptureModule.createListenerStatus(this.context) }
     val captureEngine: CaptureEngine by lazy { CaptureModule.createEngine(this) }
     val widgetRefresher: WidgetRefresher by lazy { WidgetModule.createRefresher(this.context) }
+
+    /** Opt-in update check. UI only: never touched by capture, widgets or workers. */
+    val updateController: UpdateController by lazy { UpdateModule.createController(this.context, appScope) }
 }

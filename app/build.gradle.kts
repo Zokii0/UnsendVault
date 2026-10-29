@@ -55,8 +55,8 @@ tasks.register("printVersion") {
 }
 
 /**
- * UnsendVault is offline-only. Fails the build when the merged manifest requests any permission outside the allowlist
- * below — in particular INTERNET or any network-state permission pulled in transitively by a library.
+ * Fails the build when the merged manifest requests any permission outside the allowlist below — in particular any
+ * network-state permission pulled in transitively by a library. INTERNET is allowed only for the opt-in update check.
  */
 abstract class VerifyPermissionsTask : DefaultTask() {
     @get:InputFile
@@ -69,6 +69,7 @@ abstract class VerifyPermissionsTask : DefaultTask() {
         val declared = Regex("""<uses-permission(?:-sdk-23)?[^>]*android:name="([^"]+)"""")
             .findAll(text).map { it.groupValues[1] }.toSet()
         val allowed = setOf(
+            "android.permission.INTERNET", // update check only (opt-in)
             "android.permission.USE_BIOMETRIC", // app lock (API 28+)
             "android.permission.USE_FINGERPRINT", // app lock on API 26-27, added by androidx.biometric
             "android.permission.WAKE_LOCK", // WorkManager (used by Glance + daily retention job)
@@ -76,8 +77,7 @@ abstract class VerifyPermissionsTask : DefaultTask() {
         )
         val dynamicReceiver = Regex(""".*\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION""")
         val unexpected = declared.filterNot { it in allowed || dynamicReceiver.matches(it) }
-        check(unexpected.isEmpty()) { "Merged manifest declares permissions outside the offline allowlist: $unexpected" }
-        check("android.permission.INTERNET" !in declared) { "INTERNET must never be declared" }
+        check(unexpected.isEmpty()) { "Merged manifest declares permissions outside the allowlist: $unexpected" }
     }
 }
 
