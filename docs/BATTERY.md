@@ -331,3 +331,11 @@ The data layer was not changed on this branch; these are for the owner of `data/
 9. **`SettingsRepository.current`.** It still starts with defaults (`stateIn(Eagerly, VaultSettings())`). The capture
    layer now uses its own nullable snapshot. Consider exposing `StateFlow<VaultSettings?>` so no caller can act on
    defaults during a cold start.
+
+## Measured results
+
+Measured on a Pixel 6 (Android 17) with release builds; full table and method in
+[TEST_REPORT.md](TEST_REPORT.md#battery-results-release-builds). In short: compared with 1.0.15, non-message
+notifications cost about 35 % less CPU and bursts of re-posted conversation updates 30–50 % less; storing a genuinely
+new message is not cheaper (it is now field-encrypted); a paused listener is unbound and costs nothing; the app holds no
+alarms and no wake locks.
