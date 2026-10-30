@@ -71,11 +71,18 @@ create=(release create "$tag" --repo "$repo" --verify-tag --draft --title "Unsen
 if $generate_notes; then create+=(--generate-notes); fi
 gh "${create[@]}" "${assets[@]}"
 
+# The releases list is eventually consistent: a draft created a moment ago may not be listed yet, so look it up a few
+# times before giving up (the v1.0.26 run failed here on the first lookup).
 release_id=""
-created=$(releases_with_tag)
-while read -r id draft; do
-  if [[ $draft == true ]]; then release_id=$id; fi
-done <<< "$created"
+for delay in 0 3 6 10 15 20; do
+  sleep "$delay"
+  created=$(releases_with_tag)
+  while read -r id draft; do
+    if [[ $draft == true ]]; then release_id=$id; fi
+  done <<< "$created"
+  [[ -n $release_id ]] && break
+  echo "The draft for $tag is not listed yet; retrying."
+done
 [[ -n $release_id ]] || fail "the draft release for $tag was not found after creating it"
 
 uploaded=$(gh api "repos/$repo/releases/$release_id" --jq '[.assets[] | select(.state == "uploaded") | .name] | sort | join(" ")')
