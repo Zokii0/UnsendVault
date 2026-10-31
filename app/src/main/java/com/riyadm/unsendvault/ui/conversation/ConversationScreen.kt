@@ -107,6 +107,7 @@ fun ConversationRoute(
         onClearSelection = viewModel::clearSelection,
         onDeleteSelected = viewModel::deleteSelected,
         onDeleteConversation = viewModel::deleteConversation,
+        onSendReply = viewModel::sendReply,
     )
 }
 
@@ -121,6 +122,7 @@ fun ConversationScreen(
     onDeleteSelected: () -> Unit,
     onDeleteConversation: () -> Unit,
     snackbarHostState: SnackbarHostState? = null,
+    onSendReply: (String) -> Boolean = { false },
 ) {
     val formatter = rememberTimeFormatter()
     var confirmDeleteSelected by rememberSaveable { mutableStateOf(false) }
@@ -134,6 +136,9 @@ fun ConversationScreen(
         title = title,
         snackbarHostState = snackbarHostState,
         scrollBehavior = null,
+        bottomBar = {
+            if (state.conversation != null && !state.selecting) ReplyBar(state.replyAvailable, onSendReply)
+        },
         topBar = {
             if (state.selecting) {
                 TopAppBar(

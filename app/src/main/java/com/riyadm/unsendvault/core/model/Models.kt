@@ -135,6 +135,9 @@ data class MessageQuery(
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Tab the archive opens on at launch. Mirrors the home screen tabs. */
+enum class StartTab { RECENT, CONVERSATIONS, APPS }
+
 /** All user preferences, persisted with DataStore. Defaults are the privacy-safe choice. */
 data class VaultSettings(
     val onboardingCompleted: Boolean = false,
@@ -170,4 +173,15 @@ data class VaultSettings(
     val backupReminderDays: Int = 0,
     /** Hide app content in Recents and block screenshots (FLAG_SECURE). */
     val secureScreen: Boolean = true,
+    /** Tab shown when the app opens. */
+    val startTab: StartTab = StartTab.RECENT,
+    /**
+     * When true only packages in [allowedPackages] are captured; every other package is dropped before any parsing.
+     * Stricter than [messagesOnly], which is a heuristic on notification contents.
+     */
+    val selectedAppsOnly: Boolean = false,
+    /** Apps the user ticked for [selectedAppsOnly]. Pre-filled with the chat apps found on the phone on first use. */
+    val allowedPackages: Set<String> = emptySet(),
+    /** Post a silent notification when a new message is saved; tapping it opens that conversation. */
+    val notifyOnSave: Boolean = false,
 )

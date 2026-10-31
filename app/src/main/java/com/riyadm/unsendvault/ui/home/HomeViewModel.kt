@@ -8,6 +8,7 @@ import com.riyadm.unsendvault.core.model.AppSummary
 import com.riyadm.unsendvault.core.model.ArchivedMessage
 import com.riyadm.unsendvault.core.model.Conversation
 import com.riyadm.unsendvault.core.model.MessageQuery
+import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.VaultStats
 import com.riyadm.unsendvault.data.SettingsRepository
 import com.riyadm.unsendvault.data.VaultRepository
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -31,6 +33,12 @@ fun captureStatusOf(accessGranted: Boolean, captureEnabled: Boolean, connected: 
     !captureEnabled -> CaptureStatus.PAUSED
     !connected -> CaptureStatus.DISCONNECTED
     else -> CaptureStatus.ACTIVE
+}
+
+fun homeTabOf(start: StartTab): HomeTab = when (start) {
+    StartTab.RECENT -> HomeTab.RECENT
+    StartTab.CONVERSATIONS -> HomeTab.CONVERSATIONS
+    StartTab.APPS -> HomeTab.APPS
 }
 
 @Immutable
@@ -52,7 +60,10 @@ class HomeViewModel(
     private val settings: SettingsRepository,
     private val listenerStatus: ListenerStatus,
 ) : ViewModel() {
-    private val tab = MutableStateFlow(HomeTab.RECENT)
+    private val tab = MutableStateFlow(homeTabOf(settings.current.startTab))
+
+    /** True once the user (or openApp) picked a tab, so the late start-tab correction below never overrides it. */
+    private var tabTouched = false
     private val packageFilter = MutableStateFlow<Set<String>>(emptySet())
     private val accessGranted = MutableStateFlow(listenerStatus.isAccessGranted())
     private val selectedConversation = MutableStateFlow<Long?>(null)
@@ -90,7 +101,18 @@ class HomeViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
-    fun selectTab(value: HomeTab) = tab.update { value }
+    init {
+        // settings.current can still hold defaults right after process start; correct once from the persisted value.
+        viewModelScope.launch {
+            val persisted = settings.settings.first().startTab
+            if (!tabTouched) tab.value = homeTabOf(persisted)
+        }
+    }
+
+    fun selectTab(value: HomeTab) {
+        tabTouched = true
+        tab.update { value }
+    }
 
     fun togglePackage(packageName: String) = packageFilter.update { if (packageName in it) it - packageName else it + packageName }
 
@@ -98,6 +120,7 @@ class HomeViewModel(
 
     /** From the Apps tab: show that app's conversations. */
     fun openApp(packageName: String) {
+        tabTouched = true
         packageFilter.value = setOf(packageName)
         tab.value = HomeTab.CONVERSATIONS
     }

@@ -50,7 +50,14 @@ object CaptureModule {
             settingsProvider = { cache.get() },
             sink = object : CaptureSink {
                 override suspend fun ingest(parsed: ParsedNotification, capturedAt: Long) {
-                    container.vaultRepository.ingest(parsed, capturedAt)
+                    val result = container.vaultRepository.ingest(parsed, capturedAt)
+                    // Ties the notification's inline-reply action to its conversation so the archive can answer it.
+                    parsed.messages.firstOrNull()?.let { ReplyRegistry.bind(parsed.notificationKey, it.conversationKey) }
+                    try {
+                        SavedMessageNotifier.onSaved(container, parsed, result, capturedAt)
+                    } catch (e: Exception) {
+                        CaptureLog.d("saved-message notification failed: ${e.javaClass.simpleName}")
+                    }
                 }
 
                 override suspend fun recordRemoval(event: RemovalEvent) {

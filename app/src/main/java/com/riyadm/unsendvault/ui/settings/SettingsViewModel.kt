@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.riyadm.unsendvault.core.model.AppSummary
+import com.riyadm.unsendvault.capture.adapter.KnownApps
+import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.data.RetentionScheduler
@@ -28,6 +30,15 @@ data class ExclusionCandidate(
     val excluded: Boolean,
 )
 
+/** One row of the "only selected apps" picker. */
+@Immutable
+data class AllowedCandidate(
+    val packageName: String,
+    val label: String,
+    val allowed: Boolean,
+    val knownChatApp: Boolean,
+)
+
 @Immutable
 data class SettingsUiState(
     val settings: VaultSettings? = null,
@@ -35,6 +46,20 @@ data class SettingsUiState(
     val launcherApps: List<InstalledApp>? = null,
     val busy: Boolean = false,
 ) {
+    /** Apps on the phone (launcher apps) plus archived ones; known chat apps first, then alphabetical (stable while ticking). */
+    val allowedCandidates: List<AllowedCandidate>
+        get() {
+            val allowed = settings?.allowedPackages.orEmpty()
+            val byPackage = LinkedHashMap<String, AllowedCandidate>()
+            fun add(pkg: String, label: String) {
+                byPackage.putIfAbsent(pkg, AllowedCandidate(pkg, label, pkg in allowed, pkg in KnownApps.chatPackages))
+            }
+            launcherApps.orEmpty().forEach { add(it.packageName, it.label) }
+            archiveApps.forEach { add(it.packageName, it.appLabel) }
+            allowed.forEach { add(it, it) }
+            return byPackage.values.sortedWith(compareByDescending<AllowedCandidate> { it.knownChatApp }.thenBy { it.label.lowercase() })
+        }
+
     /** Archive apps first (they matter most), then other launcher apps; excluded apps always included. */
     val exclusionCandidates: List<ExclusionCandidate>
         get() {
@@ -86,6 +111,32 @@ class SettingsViewModel(
     // Capture
     fun setCaptureEnabled(value: Boolean) = update { it.copy(captureEnabled = value) }
     fun setMessagesOnly(value: Boolean) = update { it.copy(messagesOnly = value) }
+
+    /**
+     * Turning the mode on for the first time pre-selects the chat apps found on this phone, so it works immediately and
+     * the user only adjusts the list afterwards.
+     */
+    fun setSelectedAppsOnly(value: Boolean) {
+        viewModelScope.launch {
+            val seed: Set<String> = if (value && settingsRepository.current.allowedPackages.isEmpty()) {
+                val apps = launcherApps.value
+                    ?: runCatching { installedApps.launcherApps() }.getOrDefault(emptyList()).also { launcherApps.value = it }
+                apps.map { it.packageName }.filterTo(LinkedHashSet()) { it in KnownApps.chatPackages }
+            } else {
+                emptySet()
+            }
+            settingsRepository.update {
+                it.copy(selectedAppsOnly = value, allowedPackages = if (seed.isNotEmpty()) seed else it.allowedPackages)
+            }
+        }
+    }
+
+    fun setAllowed(packageName: String, allowed: Boolean) = update {
+        it.copy(allowedPackages = if (allowed) it.allowedPackages + packageName else it.allowedPackages - packageName)
+    }
+
+    fun setNotifyOnSave(value: Boolean) = update { it.copy(notifyOnSave = value) }
+    fun setStartTab(value: StartTab) = update { it.copy(startTab = value) }
 
     fun loadLauncherApps() {
         if (launcherApps.value != null) return

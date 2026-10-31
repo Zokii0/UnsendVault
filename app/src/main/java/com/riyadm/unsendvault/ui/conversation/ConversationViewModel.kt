@@ -3,6 +3,7 @@ package com.riyadm.unsendvault.ui.conversation
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.riyadm.unsendvault.capture.ReplyRegistry
 import com.riyadm.unsendvault.core.model.ArchivedMessage
 import com.riyadm.unsendvault.core.model.Conversation
 import com.riyadm.unsendvault.core.model.MessageQuery
@@ -56,6 +57,8 @@ data class ConversationUiState(
     val messages: List<ArchivedMessage> = emptyList(),
     val timeline: List<TimelineItem> = emptyList(),
     val selection: Set<Long> = emptySet(),
+    /** True while the chat app's reply notification is still showing, so a reply can be sent from here. */
+    val replyAvailable: Boolean = false,
 ) {
     val selecting: Boolean get() = selection.isNotEmpty()
 }
@@ -69,6 +72,8 @@ class ConversationViewModel(
     private val conversationId: Long,
     private val vault: VaultRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
+    private val replyAvailability: Flow<Set<String>> = MutableStateFlow(emptySet()),
+    private val replySender: (Conversation, String) -> Boolean = { _, _ -> false },
 ) : ViewModel() {
     private val selection = MutableStateFlow<Set<Long>>(emptySet())
     private val _events = Channel<ConversationEvent>(Channel.BUFFERED)
@@ -81,10 +86,20 @@ class ConversationViewModel(
         vault.observeConversation(conversationId),
         messages,
         selection,
-    ) { conversation, (list, timeline), selected ->
+        replyAvailability,
+    ) { conversation, (list, timeline), selected, replies ->
         val ids = list.mapTo(HashSet()) { it.id }
-        ConversationUiState(false, conversation, list, timeline, selected.filterTo(LinkedHashSet()) { it in ids })
+        val canReply = conversation != null && ReplyRegistry.token(conversation.packageName, conversation.conversationKey) in replies
+        ConversationUiState(false, conversation, list, timeline, selected.filterTo(LinkedHashSet()) { it in ids }, canReply)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ConversationUiState())
+
+    /** Sends [text] through the chat app's reply action. False when no reply action is available any more. */
+    fun sendReply(text: String): Boolean {
+        val conversation = state.value.conversation ?: return false
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return false
+        return replySender(conversation, trimmed)
+    }
 
     fun toggleSelection(id: Long) = selection.update { if (id in it) it - id else it + id }
 

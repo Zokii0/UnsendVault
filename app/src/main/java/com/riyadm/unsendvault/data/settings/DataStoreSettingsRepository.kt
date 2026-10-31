@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.data.SettingsRepository
@@ -78,6 +79,10 @@ class DataStoreSettingsRepository(
         val lastExportAt = longPreferencesKey("last_export_at")
         val backupReminderDays = intPreferencesKey("backup_reminder_days")
         val secureScreen = booleanPreferencesKey("secure_screen")
+        val startTab = stringPreferencesKey("start_tab")
+        val selectedAppsOnly = booleanPreferencesKey("selected_apps_only")
+        val allowedPackages = stringSetPreferencesKey("allowed_packages")
+        val notifyOnSave = booleanPreferencesKey("notify_on_save")
     }
 
     companion object {
@@ -102,6 +107,10 @@ class DataStoreSettingsRepository(
                 lastExportAt = p[Keys.lastExportAt],
                 backupReminderDays = (p[Keys.backupReminderDays] ?: DEFAULTS.backupReminderDays).coerceAtLeast(0),
                 secureScreen = p[Keys.secureScreen] ?: DEFAULTS.secureScreen,
+                startTab = p[Keys.startTab]?.let { n -> StartTab.entries.firstOrNull { it.name == n } } ?: DEFAULTS.startTab,
+                selectedAppsOnly = p[Keys.selectedAppsOnly] ?: DEFAULTS.selectedAppsOnly,
+                allowedPackages = p[Keys.allowedPackages] ?: DEFAULTS.allowedPackages,
+                notifyOnSave = p[Keys.notifyOnSave] ?: DEFAULTS.notifyOnSave,
             )
         }
 
@@ -122,6 +131,10 @@ class DataStoreSettingsRepository(
             if (s.lastExportAt != null) p[Keys.lastExportAt] = s.lastExportAt else p.remove(Keys.lastExportAt)
             p[Keys.backupReminderDays] = s.backupReminderDays.coerceAtLeast(0)
             p[Keys.secureScreen] = s.secureScreen
+            p[Keys.startTab] = s.startTab.name
+            p[Keys.selectedAppsOnly] = s.selectedAppsOnly
+            p[Keys.allowedPackages] = s.allowedPackages
+            p[Keys.notifyOnSave] = s.notifyOnSave
         }
     }
 }
