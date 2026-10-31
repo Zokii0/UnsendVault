@@ -257,8 +257,9 @@
     <string name="settings_selected_apps_only_summary">Only save notifications from the apps you tick. Chat apps found on this phone are pre-selected the first time you turn this on. Everything else is ignored.</string>
     <string name="settings_allowed_apps">Selected apps</string>
     <string name="settings_allowed_count">%1$d selected</string>
-    <string name="allowed_apps_explainer">Only ticked apps are saved. Chat apps installed on this phone are listed first.</string>
+    <string name="allowed_apps_explainer">Only ticked apps are saved. Apps from other profiles (such as a work profile) are included; chat apps are listed first.</string>
     <string name="allowed_apps_chat_app">Chat app</string>
+    <string name="installed_app_other_profile">%1$s (other profile)</string>
     <string name="settings_notify_on_save">Open-in-app notification</string>
     <string name="settings_notify_on_save_summary">Post a silent notification when a message is saved. Tap it to read the conversation here. It shows only the chat name, never the message text.</string>
     <string name="settings_start_tab">Start tab</string>

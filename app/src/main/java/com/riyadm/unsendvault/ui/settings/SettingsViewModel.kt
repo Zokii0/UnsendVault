@@ -113,8 +113,8 @@ class SettingsViewModel(
     fun setMessagesOnly(value: Boolean) = update { it.copy(messagesOnly = value) }
 
     /**
-     * Turning the mode on for the first time pre-selects the chat apps found on this phone, so it works immediately and
-     * the user only adjusts the list afterwards.
+     * Turning the mode on for the first time pre-selects the chat apps found on this phone (including other profiles),
+     * so it works immediately and the user only adjusts the list afterwards.
      */
     fun setSelectedAppsOnly(value: Boolean) {
         viewModelScope.launch {
