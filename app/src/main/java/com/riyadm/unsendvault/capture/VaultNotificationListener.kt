@@ -147,6 +147,7 @@ class VaultNotificationListener : NotificationListenerService() {
         if (settings == null) CaptureStats.inc(CaptureStats.Counter.PREFILTER_UNKNOWN_SETTINGS)
         val snapshot = SnapshotFactory.fromStatusBarNotification(sbn, ownPackage.ifEmpty { packageName }) ?: return null
         CaptureStats.inc(CaptureStats.Counter.SNAPSHOTS_BUILT)
+        ReplyRegistry.register(sbn) // remembers the latest inline-reply action of this chat
         return snapshot
     }
 

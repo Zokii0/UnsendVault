@@ -3,6 +3,7 @@ package com.riyadm.unsendvault.capture
 import android.app.Notification
 import com.riyadm.unsendvault.capture.adapter.AdapterRegistry
 import com.riyadm.unsendvault.capture.parser.TextRules
+import com.riyadm.unsendvault.capture.adapter.KnownApps
 import com.riyadm.unsendvault.core.model.VaultSettings
 
 /**
@@ -45,6 +46,7 @@ class CapturePreFilter(private val registry: AdapterRegistry, private val ownPac
         if (settings != null) {
             if (!settings.captureEnabled) return Result.PAUSED
             if (packageName in settings.excludedPackages) return Result.EXCLUDED
+            if (settings.selectedAppsOnly && packageName !in settings.allowedPackages) return Result.EXCLUDED
         }
         if (TextRules.isCallCategory(category) || TextRules.isNonMessageCategory(category)) return Result.NON_MESSAGE_CATEGORY
         return Result.ACCEPT

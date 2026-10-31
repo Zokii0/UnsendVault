@@ -138,6 +138,11 @@ class RoomVaultRepository(
 
     // ---- Ingest ----------------------------------------------------------------------------------------------------
 
+    override suspend fun conversationIdOf(packageName: String, conversationKey: String): Long? {
+        val db = holder.database() ?: return null
+        return db.dao().findConversation(packageName, db.cipher.blindIndex(conversationKey, IndexDomain.CONVERSATION))?.id
+    }
+
     override suspend fun ingest(parsed: ParsedNotification, capturedAt: Long): IngestResult {
         if (parsed.messages.isEmpty() && parsed.deletionMarkers.isEmpty()) return IngestResult.EMPTY
         val db = holder.database() ?: return IngestResult.EMPTY

@@ -10,6 +10,7 @@ import com.riyadm.unsendvault.capture.RemovalEvent
 import com.riyadm.unsendvault.capture.adapter.AdapterRegistry
 import com.riyadm.unsendvault.capture.adapter.AppAdapter
 import com.riyadm.unsendvault.capture.adapter.AppLabelResolver
+import com.riyadm.unsendvault.capture.adapter.KnownApps
 import com.riyadm.unsendvault.capture.filter.SensitiveContentFilter
 import com.riyadm.unsendvault.capture.parser.ParseOutcome
 import com.riyadm.unsendvault.core.model.VaultSettings
@@ -150,6 +151,7 @@ class DefaultCaptureEngine(
         if (!settings.captureEnabled) return null
         val pkg = snapshot.packageName
         if (pkg == ownPackage || pkg in settings.excludedPackages) return null
+        if (settings.selectedAppsOnly && pkg !in settings.allowedPackages) return null
         if (snapshot.isOngoing) return null
         val adapter = registry.adapterFor(pkg)
         if (settings.messagesOnly && !safeIsMessage(adapter, snapshot)) return null

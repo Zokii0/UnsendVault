@@ -1,5 +1,6 @@
 package com.riyadm.unsendvault.ui.navigation
 
+import com.riyadm.unsendvault.capture.ReplyRegistry
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
@@ -65,6 +66,7 @@ import com.riyadm.unsendvault.ui.search.SearchRoute
 import com.riyadm.unsendvault.ui.search.SearchViewModel
 import com.riyadm.unsendvault.ui.settings.AboutRoute
 import com.riyadm.unsendvault.ui.settings.BackupViewModel
+import com.riyadm.unsendvault.ui.settings.AllowedAppsRoute
 import com.riyadm.unsendvault.ui.settings.ExclusionsRoute
 import com.riyadm.unsendvault.ui.settings.PackageManagerAppsSource
 import com.riyadm.unsendvault.ui.settings.ReliabilityRoute
@@ -89,6 +91,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class ConversationDest(val id: Long)
 @Serializable data class MessageDest(val id: Long)
 @Serializable data object ExclusionsDest
+@Serializable data object AllowedAppsDest
 @Serializable data object ReliabilityDest
 @Serializable data object AboutDest
 
@@ -136,6 +139,7 @@ private fun MainScaffold(widthSizeClass: WindowWidthSizeClass, onLockNow: () -> 
             DeepLink.Home -> navController.navigateTopLevel(TopLevel.HOME)
             DeepLink.Favorites -> navController.navigateTopLevel(TopLevel.FAVORITES)
             is DeepLink.Message -> navController.navigate(MessageDest(link.id)) { launchSingleTop = true }
+            is DeepLink.Conversation -> navController.navigate(ConversationDest(link.id)) { launchSingleTop = true }
             DeepLink.NotificationAccess -> context.startFirstAvailable(
                 context.appContainer.listenerStatus.accessSettingsIntent(),
                 context.appDetailsIntent(),
@@ -244,6 +248,7 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
                 backupViewModel = containerViewModel { BackupViewModel(it.backupManager, it.settingsRepository) },
                 accessSettingsIntent = { container.listenerStatus.accessSettingsIntent() },
                 onOpenExclusions = { navController.navigate(ExclusionsDest) },
+                onOpenAllowedApps = { navController.navigate(AllowedAppsDest) },
                 onOpenReliability = { navController.navigate(ReliabilityDest) },
                 onOpenAbout = { navController.navigate(AboutDest) },
                 showDeveloperOptions = BuildConfig.DEBUG,
@@ -253,7 +258,16 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
             val back = rememberBack(navController)
             val id = backStackEntry.toRoute<ConversationDest>().id
             ConversationRoute(
-                viewModel = containerViewModel { ConversationViewModel(id, it.vaultRepository) },
+                viewModel = containerViewModel {
+                    ConversationViewModel(
+                        id,
+                        it.vaultRepository,
+                        replyAvailability = ReplyRegistry.available,
+                        replySender = { conversation, text ->
+                            ReplyRegistry.send(it.context, conversation.packageName, conversation.conversationKey, text)
+                        },
+                    )
+                },
                 onBack = { back() },
                 onClosed = { back() },
                 onOpenMessage = { navController.navigate(MessageDest(it)) },
@@ -267,6 +281,10 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
         composable<ExclusionsDest> {
             val back = rememberBack(navController)
             ExclusionsRoute(containerViewModel { settingsViewModelFactory(it) }) { back() }
+        }
+        composable<AllowedAppsDest> {
+            val back = rememberBack(navController)
+            AllowedAppsRoute(containerViewModel { settingsViewModelFactory(it) }) { back() }
         }
         composable<ReliabilityDest> {
             val back = rememberBack(navController)

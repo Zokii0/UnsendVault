@@ -68,14 +68,16 @@ class ArchiveScreensUiTest {
         setHome(HomeViewModel(InMemoryVaultRepository(), settings, FakeListenerStatus(true)))
         rule.onNodeWithText(str(R.string.status_paused_title)).assertIsDisplayed()
         rule.onNodeWithTag(HomeTestTags.RESUME).performClick()
-        rule.onNodeWithText(str(R.string.status_active_title)).assertIsDisplayed()
+        // A healthy capture state shows no banner at all.
+        rule.onNodeWithText(str(R.string.status_active_title)).assertDoesNotExist()
+        rule.onNodeWithText(str(R.string.status_paused_title)).assertDoesNotExist()
     }
 
     @Test
     fun homePopulatedAndFilteredByApp() {
         val vault = InMemoryVaultRepository(listOf(UiFixtures.alex, UiFixtures.club), UiFixtures.messages)
         setHome(HomeViewModel(vault, InMemorySettingsRepository(VaultSettings(onboardingCompleted = true)), FakeListenerStatus(true)))
-        rule.onNodeWithText(str(R.string.status_active_title)).assertIsDisplayed()
+        rule.onNodeWithText(str(R.string.status_active_title)).assertDoesNotExist()
         rule.onNodeWithText("See you at 7", substring = true).assertExists()
         rule.onNodeWithText("Chapter 7 on Sunday", substring = true).assertExists()
 

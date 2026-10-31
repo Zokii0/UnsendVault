@@ -2,7 +2,12 @@ package com.riyadm.unsendvault.ui.settings
 
 import android.content.res.Resources
 import androidx.compose.ui.platform.LocalResources
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
+import com.riyadm.unsendvault.core.model.StartTab
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -103,7 +108,7 @@ object SettingsTestTags {
     const val EXPORT = "settings_export"
 }
 
-private enum class SettingsDialog { NONE, RETENTION, TIMEOUT, THEME, REMINDER, DELETE_ALL }
+private enum class SettingsDialog { NONE, RETENTION, TIMEOUT, THEME, REMINDER, START_TAB, DELETE_ALL }
 
 @Composable
 fun SettingsRoute(
@@ -111,6 +116,7 @@ fun SettingsRoute(
     backupViewModel: BackupViewModel,
     accessSettingsIntent: () -> Intent,
     onOpenExclusions: () -> Unit,
+    onOpenAllowedApps: () -> Unit = {},
     onOpenReliability: () -> Unit,
     onOpenAbout: () -> Unit,
     showDeveloperOptions: Boolean,
@@ -169,6 +175,7 @@ fun SettingsRoute(
             context.startFirstAvailable(accessSettingsIntent(), Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS), context.appDetailsIntent())
         },
         onOpenExclusions = onOpenExclusions,
+        onOpenAllowedApps = onOpenAllowedApps,
         onOpenReliability = onOpenReliability,
         onOpenAbout = onOpenAbout,
         showDeveloperOptions = showDeveloperOptions && viewModel.canInsertDemoData,
@@ -202,6 +209,7 @@ fun SettingsScreen(
     backupViewModel: BackupViewModel,
     onOpenAccessSettings: () -> Unit,
     onOpenExclusions: () -> Unit,
+    onOpenAllowedApps: () -> Unit = {},
     onOpenReliability: () -> Unit,
     onOpenAbout: () -> Unit,
     showDeveloperOptions: Boolean,
@@ -209,6 +217,11 @@ fun SettingsScreen(
 ) {
     var dialog by rememberSaveable { mutableStateOf(SettingsDialog.NONE) }
     val formatter = rememberTimeFormatter()
+    val screenContext = LocalContext.current
+    // Android 13+ needs a runtime grant before the app may post its own notifications.
+    val notifyPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        viewModel.setNotifyOnSave(granted)
+    }
     AppScaffold(title = stringResource(R.string.settings_title), snackbarHostState = snackbarHostState) { padding ->
         val s = state.settings ?: return@AppScaffold
         Column(
@@ -238,6 +251,21 @@ fun SettingsScreen(
                     onCheckedChange = viewModel::setMessagesOnly,
                     icon = Icons.Outlined.Apps,
                 )
+                SwitchRow(
+                    title = stringResource(R.string.settings_selected_apps_only),
+                    summary = stringResource(R.string.settings_selected_apps_only_summary),
+                    checked = s.selectedAppsOnly,
+                    onCheckedChange = viewModel::setSelectedAppsOnly,
+                    icon = Icons.Outlined.Shield,
+                )
+                if (s.selectedAppsOnly) {
+                    ValueRow(
+                        title = stringResource(R.string.settings_allowed_apps),
+                        value = stringResource(R.string.settings_allowed_count, s.allowedPackages.size),
+                        icon = Icons.Outlined.Apps,
+                        onClick = onOpenAllowedApps,
+                    )
+                }
                 ValueRow(
                     title = stringResource(R.string.settings_excluded_apps),
                     value = if (s.excludedPackages.isEmpty()) {
@@ -253,6 +281,19 @@ fun SettingsScreen(
                     value = stringResource(R.string.settings_notification_access_summary),
                     icon = Icons.Outlined.NotificationsActive,
                     onClick = onOpenAccessSettings,
+                )
+
+                SwitchRow(
+                    title = stringResource(R.string.settings_notify_on_save),
+                    summary = stringResource(R.string.settings_notify_on_save_summary),
+                    checked = s.notifyOnSave,
+                    onCheckedChange = { on ->
+                        val needsGrant = on && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(screenContext, Manifest.permission.POST_NOTIFICATIONS) !=
+                            PackageManager.PERMISSION_GRANTED
+                        if (needsGrant) notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else viewModel.setNotifyOnSave(on)
+                    },
+                    icon = Icons.Outlined.NotificationsActive,
                 )
 
                 // Retention
@@ -321,6 +362,12 @@ fun SettingsScreen(
 
                 // Appearance
                 SectionHeader(stringResource(R.string.settings_section_appearance))
+                ValueRow(
+                    title = stringResource(R.string.settings_start_tab),
+                    value = startTabLabel(s.startTab),
+                    icon = Icons.Outlined.Apps,
+                    onClick = { dialog = SettingsDialog.START_TAB },
+                )
                 ValueRow(
                     title = stringResource(R.string.settings_theme),
                     value = themeLabel(s.themeMode),
@@ -476,6 +523,17 @@ private fun SettingsDialogs(dialog: SettingsDialog, s: VaultSettings, viewModel:
             },
             onDismiss = onDismiss,
         )
+        SettingsDialog.START_TAB -> ChoiceDialog(
+            title = stringResource(R.string.settings_start_tab),
+            options = StartTab.entries,
+            selected = s.startTab,
+            label = { startTabLabel(it) },
+            onSelect = {
+                viewModel.setStartTab(it)
+                onDismiss()
+            },
+            onDismiss = onDismiss,
+        )
         SettingsDialog.REMINDER -> ChoiceDialog(
             title = stringResource(R.string.backup_reminder),
             options = SettingsViewModel.REMINDER_OPTIONS,
@@ -515,6 +573,15 @@ private fun timeoutLabel(seconds: Int): String = when {
     seconds < 60 -> pluralStringResource(R.plurals.timeout_seconds, seconds, seconds)
     else -> pluralStringResource(R.plurals.timeout_minutes, seconds / 60, seconds / 60)
 }
+
+@Composable
+private fun startTabLabel(tab: StartTab): String = stringResource(
+    when (tab) {
+        StartTab.RECENT -> R.string.start_tab_recent
+        StartTab.CONVERSATIONS -> R.string.start_tab_chats
+        StartTab.APPS -> R.string.start_tab_apps
+    },
+)
 
 @Composable
 private fun themeLabel(mode: ThemeMode): String = stringResource(

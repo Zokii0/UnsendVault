@@ -84,4 +84,10 @@ object KnownApps {
     fun labelFor(packageName: String): String? = LABELS[packageName]
 
     val packages: Set<String> get() = LABELS.keys
+
+    /**
+     * Chat apps pre-selected the first time "Only selected apps" is turned on (those installed on the phone): the known
+     * list without social/utility apps whose notifications are mostly not chat messages.
+     */
+    val chatPackages: Set<String> by lazy { LABELS.keys - setOf(FACEBOOK, FACEBOOK_LITE, THREADS, TRUECALLER) }
 }
