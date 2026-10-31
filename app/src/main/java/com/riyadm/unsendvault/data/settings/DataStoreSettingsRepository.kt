@@ -80,7 +80,6 @@ class DataStoreSettingsRepository(
         val backupReminderDays = intPreferencesKey("backup_reminder_days")
         val secureScreen = booleanPreferencesKey("secure_screen")
         val startTab = stringPreferencesKey("start_tab")
-        val selectedAppsOnly = booleanPreferencesKey("selected_apps_only")
         val allowedPackages = stringSetPreferencesKey("allowed_packages")
         val notifyOnSave = booleanPreferencesKey("notify_on_save")
     }
@@ -108,8 +107,7 @@ class DataStoreSettingsRepository(
                 backupReminderDays = (p[Keys.backupReminderDays] ?: DEFAULTS.backupReminderDays).coerceAtLeast(0),
                 secureScreen = p[Keys.secureScreen] ?: DEFAULTS.secureScreen,
                 startTab = p[Keys.startTab]?.let { n -> StartTab.entries.firstOrNull { it.name == n } } ?: DEFAULTS.startTab,
-                selectedAppsOnly = p[Keys.selectedAppsOnly] ?: DEFAULTS.selectedAppsOnly,
-                allowedPackages = p[Keys.allowedPackages] ?: DEFAULTS.allowedPackages,
+                allowedPackages = p[Keys.allowedPackages], // absent key = automatic
                 notifyOnSave = p[Keys.notifyOnSave] ?: DEFAULTS.notifyOnSave,
             )
         }
@@ -132,8 +130,8 @@ class DataStoreSettingsRepository(
             p[Keys.backupReminderDays] = s.backupReminderDays.coerceAtLeast(0)
             p[Keys.secureScreen] = s.secureScreen
             p[Keys.startTab] = s.startTab.name
-            p[Keys.selectedAppsOnly] = s.selectedAppsOnly
-            p[Keys.allowedPackages] = s.allowedPackages
+            val allowed = s.allowedPackages
+            if (allowed != null) p[Keys.allowedPackages] = allowed else p.remove(Keys.allowedPackages)
             p[Keys.notifyOnSave] = s.notifyOnSave
         }
     }

@@ -151,7 +151,7 @@ class DefaultCaptureEngine(
         if (!settings.captureEnabled) return null
         val pkg = snapshot.packageName
         if (pkg == ownPackage || pkg in settings.excludedPackages) return null
-        if (settings.selectedAppsOnly && pkg !in settings.allowedPackages) return null
+        settings.allowedPackages?.let { if (pkg !in it) return null }
         if (snapshot.isOngoing) return null
         val adapter = registry.adapterFor(pkg)
         if (settings.messagesOnly && !safeIsMessage(adapter, snapshot)) return null

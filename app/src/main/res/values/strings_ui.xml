@@ -253,10 +253,11 @@
     <string name="settings_capture_enabled_off">Paused. New notifications are ignored.</string>
     <string name="settings_messages_only">Messages only</string>
     <string name="settings_messages_only_summary">Only save notifications that look like chat messages. Turn off to also keep text from other apps\' notifications.</string>
-    <string name="settings_selected_apps_only">Only selected apps</string>
-    <string name="settings_selected_apps_only_summary">Only save notifications from the apps you tick. Chat apps found on this phone are pre-selected the first time you turn this on. Everything else is ignored.</string>
     <string name="settings_allowed_apps">Selected apps</string>
     <string name="settings_allowed_count">%1$d selected</string>
+    <string name="settings_allowed_automatic">Automatic</string>
+    <string name="allowed_apps_explainer_auto">Automatic: any app that sends chat-style notifications is saved. Change a switch to choose exactly which apps are saved.</string>
+    <string name="allowed_apps_reset">Reset to automatic</string>
     <string name="allowed_apps_explainer">Only ticked apps are saved. Apps from other profiles (such as a work profile) are included; chat apps are listed first.</string>
     <string name="allowed_apps_chat_app">Chat app</string>
     <string name="installed_app_other_profile">%1$s (other profile)</string>

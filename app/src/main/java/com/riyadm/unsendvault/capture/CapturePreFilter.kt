@@ -46,7 +46,8 @@ class CapturePreFilter(private val registry: AdapterRegistry, private val ownPac
         if (settings != null) {
             if (!settings.captureEnabled) return Result.PAUSED
             if (packageName in settings.excludedPackages) return Result.EXCLUDED
-            if (settings.selectedAppsOnly && packageName !in settings.allowedPackages) return Result.EXCLUDED
+            val allowedApps = settings.allowedPackages
+            if (allowedApps != null && packageName !in allowedApps) return Result.EXCLUDED
         }
         if (TextRules.isCallCategory(category) || TextRules.isNonMessageCategory(category)) return Result.NON_MESSAGE_CATEGORY
         return Result.ACCEPT

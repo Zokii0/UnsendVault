@@ -124,6 +124,8 @@ fun SettingsRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val backupState by backupViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // Warm the installed-apps list in the background so the "Selected apps" picker opens without waiting.
+    LaunchedEffect(viewModel) { viewModel.loadLauncherApps() }
     val resources = LocalResources.current
     val guard = LocalExternalActivityGuard.current
     val snackbar = remember { SnackbarHostState() }
@@ -252,21 +254,13 @@ fun SettingsScreen(
                     onCheckedChange = viewModel::setMessagesOnly,
                     icon = Icons.Outlined.Apps,
                 )
-                SwitchRow(
-                    title = stringResource(R.string.settings_selected_apps_only),
-                    summary = stringResource(R.string.settings_selected_apps_only_summary),
-                    checked = s.selectedAppsOnly,
-                    onCheckedChange = viewModel::setSelectedAppsOnly,
+                ValueRow(
+                    title = stringResource(R.string.settings_allowed_apps),
+                    value = s.allowedPackages?.let { stringResource(R.string.settings_allowed_count, it.size) }
+                        ?: stringResource(R.string.settings_allowed_automatic),
                     icon = Icons.Outlined.Shield,
+                    onClick = onOpenAllowedApps,
                 )
-                if (s.selectedAppsOnly) {
-                    ValueRow(
-                        title = stringResource(R.string.settings_allowed_apps),
-                        value = stringResource(R.string.settings_allowed_count, s.allowedPackages.size),
-                        icon = Icons.Outlined.Apps,
-                        onClick = onOpenAllowedApps,
-                    )
-                }
                 ValueRow(
                     title = stringResource(R.string.settings_excluded_apps),
                     value = if (s.excludedPackages.isEmpty()) {

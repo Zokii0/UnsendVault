@@ -1,7 +1,9 @@
 package com.riyadm.unsendvault.ui.components
 
 import android.content.Context
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.os.Process
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -40,13 +42,28 @@ internal object AppIconCache {
         val bitmap = try {
             context.packageManager.getApplicationIcon(packageName).toBitmap(sizePx, sizePx).asImageBitmap()
         } catch (_: PackageManager.NameNotFoundException) {
-            null
+            otherProfileIcon(context, packageName, sizePx) // e.g. an app that only lives in the work profile
         } catch (_: RuntimeException) {
             null
         }
         cache.put(key, bitmap ?: Missing)
         return bitmap
     }
+}
+
+/** Icon of [packageName] from another profile of the user (work profile, Dual Messenger), which PackageManager can't see. */
+private fun otherProfileIcon(context: Context, packageName: String, sizePx: Int): ImageBitmap? = try {
+    val launcher = context.getSystemService(LauncherApps::class.java)
+    val me = Process.myUserHandle()
+    launcher.profiles.asSequence()
+        .filter { it != me }
+        .mapNotNull { profile -> launcher.getActivityList(packageName, profile).firstOrNull() }
+        .firstOrNull()
+        ?.getIcon(0)
+        ?.toBitmap(sizePx, sizePx)
+        ?.asImageBitmap()
+} catch (_: RuntimeException) {
+    null
 }
 
 /**

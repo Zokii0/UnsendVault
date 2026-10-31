@@ -46,17 +46,25 @@ data class SettingsUiState(
     val launcherApps: List<InstalledApp>? = null,
     val busy: Boolean = false,
 ) {
+    /** Apps shown as ticked while the list is automatic: known chat apps found on the phone plus apps already archived. */
+    val automaticPackages: Set<String>
+        get() = buildSet {
+            launcherApps.orEmpty().forEach { if (it.packageName in KnownApps.chatPackages) add(it.packageName) }
+            archiveApps.forEach { add(it.packageName) }
+        }
+
     /** Apps on the phone (launcher apps) plus archived ones; known chat apps first, then alphabetical (stable while ticking). */
     val allowedCandidates: List<AllowedCandidate>
         get() {
-            val allowed = settings?.allowedPackages.orEmpty()
+            val explicit = settings?.allowedPackages
+            val allowed = explicit ?: automaticPackages
             val byPackage = LinkedHashMap<String, AllowedCandidate>()
             fun add(pkg: String, label: String) {
                 byPackage.putIfAbsent(pkg, AllowedCandidate(pkg, label, pkg in allowed, pkg in KnownApps.chatPackages))
             }
             launcherApps.orEmpty().forEach { add(it.packageName, it.label) }
             archiveApps.forEach { add(it.packageName, it.appLabel) }
-            allowed.forEach { add(it, it) }
+            explicit.orEmpty().forEach { add(it, it) }
             return byPackage.values.sortedWith(compareByDescending<AllowedCandidate> { it.knownChatApp }.thenBy { it.label.lowercase() })
         }
 
@@ -113,27 +121,19 @@ class SettingsViewModel(
     fun setMessagesOnly(value: Boolean) = update { it.copy(messagesOnly = value) }
 
     /**
-     * Turning the mode on for the first time pre-selects the chat apps found on this phone (including other profiles),
-     * so it works immediately and the user only adjusts the list afterwards.
+     * Ticking or unticking an app turns the automatic list into an explicit one, starting from what the picker showed
+     * as ticked, so only the change the user made differs.
      */
-    fun setSelectedAppsOnly(value: Boolean) {
-        viewModelScope.launch {
-            val seed: Set<String> = if (value && settingsRepository.current.allowedPackages.isEmpty()) {
-                val apps = launcherApps.value
-                    ?: runCatching { installedApps.launcherApps() }.getOrDefault(emptyList()).also { launcherApps.value = it }
-                apps.map { it.packageName }.filterTo(LinkedHashSet()) { it in KnownApps.chatPackages }
-            } else {
-                emptySet()
-            }
-            settingsRepository.update {
-                it.copy(selectedAppsOnly = value, allowedPackages = if (seed.isNotEmpty()) seed else it.allowedPackages)
-            }
+    fun setAllowed(packageName: String, allowed: Boolean) {
+        val automatic = state.value.automaticPackages
+        update {
+            val base = it.allowedPackages ?: automatic
+            it.copy(allowedPackages = if (allowed) base + packageName else base - packageName)
         }
     }
 
-    fun setAllowed(packageName: String, allowed: Boolean) = update {
-        it.copy(allowedPackages = if (allowed) it.allowedPackages + packageName else it.allowedPackages - packageName)
-    }
+    /** Back to saving every app whose notifications look like chat messages. */
+    fun resetAllowedToAutomatic() = update { it.copy(allowedPackages = null) }
 
     fun setNotifyOnSave(value: Boolean) = update { it.copy(notifyOnSave = value) }
     fun setStartTab(value: StartTab) = update { it.copy(startTab = value) }

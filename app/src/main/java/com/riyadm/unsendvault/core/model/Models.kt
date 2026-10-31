@@ -176,12 +176,11 @@ data class VaultSettings(
     /** Tab shown when the app opens. */
     val startTab: StartTab = StartTab.RECENT,
     /**
-     * When true only packages in [allowedPackages] are captured; every other package is dropped before any parsing.
-     * Stricter than [messagesOnly], which is a heuristic on notification contents.
+     * Apps whose notifications are saved. null (the default) is automatic: any app whose notifications look like chat
+     * messages, as before. Once the user edits the list it is explicit: only these packages are captured and every
+     * other package is dropped before any parsing. Stricter than [messagesOnly], which is only a heuristic.
      */
-    val selectedAppsOnly: Boolean = false,
-    /** Apps the user ticked for [selectedAppsOnly]. Pre-filled with the chat apps found on the phone on first use. */
-    val allowedPackages: Set<String> = emptySet(),
+    val allowedPackages: Set<String>? = null,
     /** Post a silent notification when a new message is saved; tapping it opens that conversation. */
     val notifyOnSave: Boolean = false,
 )

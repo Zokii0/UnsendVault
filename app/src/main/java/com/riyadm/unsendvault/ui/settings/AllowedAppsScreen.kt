@@ -17,11 +17,14 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -49,7 +52,16 @@ fun AllowedAppsRoute(viewModel: SettingsViewModel, onBack: () -> Unit) {
 
     AppScaffold(title = stringResource(R.string.settings_allowed_apps), onBack = onBack) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            InfoText(stringResource(R.string.allowed_apps_explainer), Modifier.padding(top = 8.dp))
+            val automatic = state.settings?.allowedPackages == null
+            InfoText(
+                stringResource(if (automatic) R.string.allowed_apps_explainer_auto else R.string.allowed_apps_explainer),
+                Modifier.padding(top = 8.dp),
+            )
+            if (!automatic) {
+                TextButton(onClick = viewModel::resetAllowedToAutomatic, modifier = Modifier.padding(horizontal = 8.dp)) {
+                    Text(stringResource(R.string.allowed_apps_reset))
+                }
+            }
             OutlinedTextField(
                 value = filter,
                 onValueChange = { filter = it },
@@ -59,29 +71,39 @@ fun AllowedAppsRoute(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = MaterialTheme.shapes.extraLarge,
             )
-            if (state.launcherApps == null) LinearProgressIndicator(Modifier.fillMaxWidth())
-            val candidates = state.allowedCandidates.let { all ->
-                val needle = filter.trim()
-                if (needle.isEmpty()) all else all.filter { it.label.contains(needle, true) || it.packageName.contains(needle, true) }
-            }
-            LazyColumn(Modifier.fillMaxSize().testTag("allowed_apps_list")) {
-                items(candidates, key = { it.packageName }, contentType = { "app" }) { candidate ->
-                    ListItem(
-                        headlineContent = { Text(candidate.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        supportingContent = {
-                            Text(
-                                if (candidate.knownChatApp) stringResource(R.string.allowed_apps_chat_app) else candidate.packageName,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                        leadingContent = { AppAvatar(candidate.packageName, candidate.label) },
-                        trailingContent = { Switch(checked = candidate.allowed, onCheckedChange = null) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier
-                            .heightIn(min = 56.dp)
-                            .toggleable(value = candidate.allowed, role = Role.Switch) { viewModel.setAllowed(candidate.packageName, it) },
-                    )
+            if (state.launcherApps == null) {
+                // Wait for the app list instead of showing a partial one that is re-sorted later: that made the list
+                // open already scrolled down, with the first rows hidden above.
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            } else {
+                // Apps that were ticked when the list opened go first, so the user's choices are at the top next time. The
+                // snapshot is taken once: sorting by the live state would make rows jump around while ticking.
+                val tickedOnOpen = remember { state.allowedCandidates.filterTo(HashSet()) { it.allowed }.map { it.packageName }.toSet() }
+                val candidates = state.allowedCandidates.sortedByDescending { it.packageName in tickedOnOpen }.let { all ->
+                    val needle = filter.trim()
+                    if (needle.isEmpty()) all else all.filter { it.label.contains(needle, true) || it.packageName.contains(needle, true) }
+                }
+                LazyColumn(Modifier.fillMaxSize().testTag("allowed_apps_list")) {
+                    items(candidates, key = { it.packageName }, contentType = { "app" }) { candidate ->
+                        ListItem(
+                            headlineContent = { Text(candidate.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = {
+                                Text(
+                                    if (candidate.knownChatApp) stringResource(R.string.allowed_apps_chat_app) else candidate.packageName,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            leadingContent = { AppAvatar(candidate.packageName, candidate.label) },
+                            // key(): a recycled row would otherwise animate its switch from the previous row's state
+                            // (a ticked row seemed to "tick again" while scrolling back).
+                            trailingContent = { key(candidate.packageName) { Switch(checked = candidate.allowed, onCheckedChange = null) } },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier
+                                .heightIn(min = 56.dp)
+                                .toggleable(value = candidate.allowed, role = Role.Switch) { viewModel.setAllowed(candidate.packageName, it) },
+                        )
+                    }
                 }
             }
         }
