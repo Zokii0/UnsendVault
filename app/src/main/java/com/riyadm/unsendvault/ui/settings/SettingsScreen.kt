@@ -116,10 +116,10 @@ fun SettingsRoute(
     backupViewModel: BackupViewModel,
     accessSettingsIntent: () -> Intent,
     onOpenExclusions: () -> Unit,
-    onOpenAllowedApps: () -> Unit = {},
     onOpenReliability: () -> Unit,
     onOpenAbout: () -> Unit,
     showDeveloperOptions: Boolean,
+    onOpenAllowedApps: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val backupState by backupViewModel.state.collectAsStateWithLifecycle()
@@ -209,11 +209,12 @@ fun SettingsScreen(
     backupViewModel: BackupViewModel,
     onOpenAccessSettings: () -> Unit,
     onOpenExclusions: () -> Unit,
-    onOpenAllowedApps: () -> Unit = {},
     onOpenReliability: () -> Unit,
     onOpenAbout: () -> Unit,
     showDeveloperOptions: Boolean,
     snackbarHostState: SnackbarHostState? = null,
+    // Last on purpose: existing callers (and tests) pass the other lambdas positionally.
+    onOpenAllowedApps: () -> Unit = {},
 ) {
     var dialog by rememberSaveable { mutableStateOf(SettingsDialog.NONE) }
     val formatter = rememberTimeFormatter()
