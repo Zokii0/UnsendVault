@@ -71,6 +71,31 @@ object SnapshotFactory {
         )
     }
 
+    /**
+     * True when a notification of an app that is not selected would have been saved under the chat heuristic (not a
+     * call, not ongoing, MessagingStyle or a dedicated messenger). Reads only the header and template fields that
+     * [preFilter] reads, never message text. Used to offer such apps as "new" in the selected-apps list.
+     */
+    fun looksLikeChat(sbn: StatusBarNotification, filter: CapturePreFilter, settings: VaultSettings?): Boolean {
+        val packageName = sbn.packageName ?: return false
+        val notification = sbn.notification ?: return false
+        val lenient = settings?.copy(selectedAppsOnly = false, messagesOnly = true) ?: return false
+        val flags = notification.flags
+        val category = notification.category
+        if (!filter.checkHeader(packageName, flags, category, lenient).accept) return false
+        val extras = notification.extras ?: return false
+        return filter.checkContent(
+            packageName = packageName,
+            flags = flags,
+            category = category,
+            channelId = safe { notification.channelId },
+            template = templateOf(extras),
+            hasMessages = extras.has(EXTRA_MESSAGES),
+            hasHistoricMessages = extras.has(EXTRA_HISTORIC_MESSAGES),
+            settings = lenient,
+        ).accept
+    }
+
     /** Returns null for notifications that are cheap to reject: own package, ongoing/foreground, no extras. */
     fun fromStatusBarNotification(sbn: StatusBarNotification, ownPackage: String): NotificationSnapshot? {
         val packageName = sbn.packageName ?: return null

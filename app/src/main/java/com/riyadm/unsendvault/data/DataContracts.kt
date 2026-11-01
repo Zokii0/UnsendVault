@@ -29,9 +29,6 @@ interface VaultRepository {
     /** Deduplicates, records update history and applies high-confidence deletion markers in one transaction. */
     suspend fun ingest(parsed: ParsedNotification, capturedAt: Long): IngestResult
 
-    /** Id of the stored conversation for a source-app key, or null when it is not in the archive. */
-    suspend fun conversationIdOf(packageName: String, conversationKey: String): Long? = null
-
     /** Records a notification removal for transparency. Never changes [com.riyadm.unsendvault.core.model.MessageStatus]. */
     suspend fun recordRemoval(event: RemovalEvent)
 

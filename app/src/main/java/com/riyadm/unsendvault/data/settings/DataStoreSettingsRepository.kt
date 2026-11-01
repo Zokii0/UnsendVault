@@ -42,7 +42,8 @@ val Context.vaultSettingsDataStore: DataStore<Preferences> by preferencesDataSto
  *   first read completes (normally a few ms after process start). Code that must not act on defaults — e.g. the
  *   listener deciding whether capture is paused right after a cold start — should use `settings.first()` instead.
  *
- * Invariant enforced on read: widgetShowContent is reported false while the app lock is enabled.
+ * Invariant enforced on read: widgetShowContent and notificationShowContent are reported false while the app lock is
+ * enabled.
  */
 class DataStoreSettingsRepository(
     private val dataStore: DataStore<Preferences>,
@@ -66,6 +67,9 @@ class DataStoreSettingsRepository(
         val onboardingCompleted = booleanPreferencesKey("onboarding_completed")
         val captureEnabled = booleanPreferencesKey("capture_enabled")
         val excludedPackages = stringSetPreferencesKey("excluded_packages")
+        val selectedAppsOnly = booleanPreferencesKey("selected_apps_only")
+        val allowedPackages = stringSetPreferencesKey("allowed_packages")
+        val newApps = stringSetPreferencesKey("new_apps")
         val messagesOnly = booleanPreferencesKey("messages_only")
         val retentionDays = intPreferencesKey("retention_days")
         val filterOtp = booleanPreferencesKey("filter_otp")
@@ -80,9 +84,8 @@ class DataStoreSettingsRepository(
         val backupReminderDays = intPreferencesKey("backup_reminder_days")
         val secureScreen = booleanPreferencesKey("secure_screen")
         val startTab = stringPreferencesKey("start_tab")
-        val selectedAppsOnly = booleanPreferencesKey("selected_apps_only")
-        val allowedPackages = stringSetPreferencesKey("allowed_packages")
-        val notifyOnSave = booleanPreferencesKey("notify_on_save")
+        val savedMessageNotifications = booleanPreferencesKey("saved_message_notifications")
+        val notificationShowContent = booleanPreferencesKey("notification_show_content")
     }
 
     companion object {
@@ -94,6 +97,9 @@ class DataStoreSettingsRepository(
                 onboardingCompleted = p[Keys.onboardingCompleted] ?: DEFAULTS.onboardingCompleted,
                 captureEnabled = p[Keys.captureEnabled] ?: DEFAULTS.captureEnabled,
                 excludedPackages = p[Keys.excludedPackages] ?: DEFAULTS.excludedPackages,
+                selectedAppsOnly = p[Keys.selectedAppsOnly] ?: DEFAULTS.selectedAppsOnly,
+                allowedPackages = p[Keys.allowedPackages] ?: DEFAULTS.allowedPackages,
+                newApps = p[Keys.newApps] ?: DEFAULTS.newApps,
                 messagesOnly = p[Keys.messagesOnly] ?: DEFAULTS.messagesOnly,
                 retentionDays = (p[Keys.retentionDays] ?: DEFAULTS.retentionDays).coerceAtLeast(0),
                 filterOtp = p[Keys.filterOtp] ?: DEFAULTS.filterOtp,
@@ -108,9 +114,8 @@ class DataStoreSettingsRepository(
                 backupReminderDays = (p[Keys.backupReminderDays] ?: DEFAULTS.backupReminderDays).coerceAtLeast(0),
                 secureScreen = p[Keys.secureScreen] ?: DEFAULTS.secureScreen,
                 startTab = p[Keys.startTab]?.let { n -> StartTab.entries.firstOrNull { it.name == n } } ?: DEFAULTS.startTab,
-                selectedAppsOnly = p[Keys.selectedAppsOnly] ?: DEFAULTS.selectedAppsOnly,
-                allowedPackages = p[Keys.allowedPackages] ?: DEFAULTS.allowedPackages,
-                notifyOnSave = p[Keys.notifyOnSave] ?: DEFAULTS.notifyOnSave,
+                savedMessageNotifications = p[Keys.savedMessageNotifications] ?: DEFAULTS.savedMessageNotifications,
+                notificationShowContent = (p[Keys.notificationShowContent] ?: DEFAULTS.notificationShowContent) && !appLock,
             )
         }
 
@@ -118,6 +123,9 @@ class DataStoreSettingsRepository(
             p[Keys.onboardingCompleted] = s.onboardingCompleted
             p[Keys.captureEnabled] = s.captureEnabled
             p[Keys.excludedPackages] = s.excludedPackages
+            p[Keys.selectedAppsOnly] = s.selectedAppsOnly
+            p[Keys.allowedPackages] = s.allowedPackages
+            p[Keys.newApps] = s.newApps
             p[Keys.messagesOnly] = s.messagesOnly
             p[Keys.retentionDays] = s.retentionDays.coerceAtLeast(0)
             p[Keys.filterOtp] = s.filterOtp
@@ -132,9 +140,8 @@ class DataStoreSettingsRepository(
             p[Keys.backupReminderDays] = s.backupReminderDays.coerceAtLeast(0)
             p[Keys.secureScreen] = s.secureScreen
             p[Keys.startTab] = s.startTab.name
-            p[Keys.selectedAppsOnly] = s.selectedAppsOnly
-            p[Keys.allowedPackages] = s.allowedPackages
-            p[Keys.notifyOnSave] = s.notifyOnSave
+            p[Keys.savedMessageNotifications] = s.savedMessageNotifications
+            p[Keys.notificationShowContent] = s.notificationShowContent && !s.appLockEnabled
         }
     }
 }

@@ -103,4 +103,25 @@ class PreFilterRobolectricTest {
         )
         assertTrue(excluded.isSettingsReject)
     }
+
+    @Test
+    fun selectedAppsOnlyBlocksUnlistedAppsAndRecognisesChatStyleOnes() {
+        val only = VaultSettings(selectedAppsOnly = true, allowedPackages = setOf(KnownApps.WHATSAPP))
+        val chat = sbn("com.example.chat", messaging())
+        // Not selected: blocked, but the messaging-style notification is recognised so the app can be offered as new.
+        assertEquals(Result.EXCLUDED, SnapshotFactory.preFilter(chat, filter, only))
+        assertTrue(SnapshotFactory.looksLikeChat(chat, filter, only))
+        // Selected apps pass, and the list is ignored when the mode is off.
+        assertEquals(Result.ACCEPT, SnapshotFactory.preFilter(sbn(KnownApps.WHATSAPP, messaging()), filter, only))
+        assertEquals(Result.ACCEPT, SnapshotFactory.preFilter(chat, filter, only.copy(selectedAppsOnly = false)))
+        // A blocked app's ordinary notification is not a chat, so it never becomes new.
+        val promo = builder("promo").setContentTitle("Sale").setContentText("50% off").build()
+        assertEquals(Result.EXCLUDED, SnapshotFactory.preFilter(sbn("com.example.shop", promo), filter, only))
+        assertFalse(SnapshotFactory.looksLikeChat(sbn("com.example.shop", promo), filter, only))
+        // Calls, excluded apps and unknown settings are never new either.
+        val call = builder().setContentTitle("Alex").setContentText("Incoming call").setCategory(NotificationCompat.CATEGORY_CALL).build()
+        assertFalse(SnapshotFactory.looksLikeChat(sbn("com.example.chat", call), filter, only))
+        assertFalse(SnapshotFactory.looksLikeChat(chat, filter, only.copy(excludedPackages = setOf("com.example.chat"))))
+        assertFalse(SnapshotFactory.looksLikeChat(chat, filter, null))
+    }
 }

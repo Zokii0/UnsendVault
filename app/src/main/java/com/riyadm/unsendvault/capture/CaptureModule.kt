@@ -1,8 +1,7 @@
 package com.riyadm.unsendvault.capture
 
+import kotlinx.coroutines.launch
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 import com.riyadm.unsendvault.R
 import com.riyadm.unsendvault.capture.adapter.AdapterRegistry
 import com.riyadm.unsendvault.capture.adapter.AppLabelResolver
@@ -33,9 +32,16 @@ class CaptureRuntime(
     val engine: CaptureEngine,
     val preFilter: CapturePreFilter,
     val settings: CaptureSettingsCache,
+    /** Also used off the hot path to find which chat an active notification belongs to (reply). */
+    val registry: AdapterRegistry,
+    /** Called with the package of a blocked app that sent a chat-style notification ("only selected apps" mode). */
+    val onBlockedChatLike: (String) -> Unit = {},
 )
 
 object CaptureModule {
+    /** How many blocked chat-style apps are remembered for the "New" list. */
+    private const val MAX_NEW_APPS = 20
+
     fun createRuntime(container: AppContainer): CaptureRuntime {
         val context = container.context
         val placeholders = placeholders(context)
@@ -51,12 +57,10 @@ object CaptureModule {
             sink = object : CaptureSink {
                 override suspend fun ingest(parsed: ParsedNotification, capturedAt: Long) {
                     val result = container.vaultRepository.ingest(parsed, capturedAt)
-                    // Ties the notification's inline-reply action to its conversation so the archive can answer it.
-                    parsed.messages.firstOrNull()?.let { ReplyRegistry.bind(parsed.notificationKey, it.conversationKey) }
-                    try {
-                        SavedMessageNotifier.onSaved(container, parsed, result, capturedAt)
-                    } catch (e: Exception) {
-                        CaptureLog.d("saved-message notification failed: ${e.javaClass.simpleName}")
+                    if (result.newMessages.isEmpty() && result.possiblyDeletedIn.isEmpty()) return
+                    val settings = cache.get()
+                    if (settings.savedMessageNotifications) {
+                        container.savedMessageNotifier.onIngested(settings, parsed, result, capturedAt)
                     }
                 }
 
@@ -65,11 +69,26 @@ object CaptureModule {
                 }
             },
             registry = registry,
-            labels = AppLabelResolver { pkg -> packageLabel(context, pkg) },
+            labels = AppLabelResolver { pkg -> container.appDirectory.label(pkg) },
             sensitiveFilter = SensitiveContentFilter(placeholders),
             ownPackage = context.packageName,
         )
-        return CaptureRuntime(engine, CapturePreFilter(registry, context.packageName), cache)
+        return CaptureRuntime(
+            engine,
+            CapturePreFilter(registry, context.packageName),
+            cache,
+            registry,
+            onBlockedChatLike = { pkg ->
+                val current = cache.current
+                if (current != null && pkg !in current.newApps) {
+                    container.appScope.launch {
+                        container.settingsRepository.update { s ->
+                            s.copy(newApps = (s.newApps + pkg).toList().takeLast(MAX_NEW_APPS).toSet())
+                        }
+                    }
+                }
+            },
+        )
     }
 
     fun createPauseController(context: Context): CapturePauseController =
@@ -95,17 +114,5 @@ object CaptureModule {
             mediaAudio = str(R.string.capture_media_audio, defaults.mediaAudio),
             mediaAttachment = str(R.string.capture_media_attachment, defaults.mediaAttachment),
         )
-    }
-
-    /** Label of a single package (never enumerates installed packages). Null when hidden by package visibility. */
-    private fun packageLabel(context: Context, packageName: String): String? {
-        val pm = context.packageManager
-        val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0))
-        } else {
-            @Suppress("DEPRECATION")
-            pm.getApplicationInfo(packageName, 0)
-        }
-        return pm.getApplicationLabel(info).toString()
     }
 }

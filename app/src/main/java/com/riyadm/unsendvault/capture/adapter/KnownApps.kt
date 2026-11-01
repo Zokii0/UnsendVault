@@ -86,8 +86,8 @@ object KnownApps {
     val packages: Set<String> get() = LABELS.keys
 
     /**
-     * Chat apps pre-selected the first time "Only selected apps" is turned on (those installed on the phone): the known
-     * list without social/utility apps whose notifications are mostly not chat messages.
+     * The known apps that are chat apps. Pre-selected the first time "only selected apps" is turned on; the social and
+     * utility apps in [packages] (their notifications are mostly not chat messages) are left out.
      */
     val chatPackages: Set<String> by lazy { LABELS.keys - setOf(FACEBOOK, FACEBOOK_LITE, THREADS, TRUECALLER) }
 }

@@ -4,7 +4,31 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 Releases are built and published automatically from `main` and numbered `MAJOR.MINOR.N`, where `N` is the commit count
 (see [docs/RELEASING.md](docs/RELEASING.md)); each GitHub release also lists the commits it contains.
 
-## Unreleased
+## 1.0.31 (2026-11-01)
+
+### Fixed
+- Apps installed only in a **work profile** or another profile (cloned apps / Dual Messenger, Secure Folder) are now
+  found: they appear in Excluded apps (marked "Work profile", "Cloned app" or "Other profile"; apps in both profiles
+  say "Also in work profile"), the archive shows their real name and their badged icon instead of the package name and
+  a letter, and a chat's "Open app" button opens the app in that profile. Uses `LauncherApps`, no new permission.
+  Reported with a proposed fix by @Zokii0 in [issue #3](https://github.com/riyadmondol2006/UnsendVault/issues/3).
+
+## 1.0.29 (2026-11-01)
+
+Requested in [issue #3](https://github.com/riyadmondol2006/UnsendVault/issues/3).
+
+### Added
+- Reply from a chat: when the chat app's notification for that chat is still showing and offers a reply button,
+  UnsendVault shows a reply box that sends through that action (as a watch or car reply would). It picks only a
+  notification that belongs to exactly this chat. When no such notification is showing, the chat explains why and
+  offers to open the chat app.
+- Optional "messages saved" notifications (Settings > Notifications, off by default): one silent notification per
+  chat with the count, grouped; tap to open the chat. Names and text only with a second opt-in, never on the lock
+  screen, never while the app lock is on. Not posted for catch-up after a reboot, old history, your own messages or
+  the chat you have open. Adds the `POST_NOTIFICATIONS` permission (asked for on Android 13+ when you turn it on).
+- "Open on" setting (Settings > Appearance): start the archive on Recent, Chats or Apps.
+
+## 1.0.27 (2026-10-30)
 
 ### Added
 - Optional update check: after setup the app asks once whether it may check GitHub for new releases. If allowed, it

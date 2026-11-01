@@ -5,7 +5,7 @@ import com.riyadm.unsendvault.widget.WidgetIntents
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/** A navigation request carried by a widget tap. Consumed once, only after the lock gate has opened. */
+/** A navigation request carried by a widget or saved-message notification tap. Consumed once, only after the lock gate has opened. */
 sealed interface DeepLink {
     data object Home : DeepLink
     data object Favorites : DeepLink

@@ -142,12 +142,20 @@ class VaultNotificationListener : NotificationListenerService() {
         val verdict = SnapshotFactory.preFilter(sbn, rt.preFilter, settings)
         if (!verdict.accept) {
             verdict.counter?.let { CaptureStats.inc(it) }
+            // "Only selected apps": a blocked app that sends chat-style notifications is offered to the user as "new".
+            if (verdict == CapturePreFilter.Result.EXCLUDED && settings != null && settings.selectedAppsOnly) {
+                val pkg = sbn.packageName
+                if (pkg != null && pkg !in settings.excludedPackages && pkg !in settings.newApps &&
+                    SnapshotFactory.looksLikeChat(sbn, rt.preFilter, settings)
+                ) {
+                    rt.onBlockedChatLike(pkg)
+                }
+            }
             return null
         }
         if (settings == null) CaptureStats.inc(CaptureStats.Counter.PREFILTER_UNKNOWN_SETTINGS)
         val snapshot = SnapshotFactory.fromStatusBarNotification(sbn, ownPackage.ifEmpty { packageName }) ?: return null
         CaptureStats.inc(CaptureStats.Counter.SNAPSHOTS_BUILT)
-        ReplyRegistry.register(sbn) // remembers the latest inline-reply action of this chat
         return snapshot
     }
 
@@ -220,6 +228,22 @@ class VaultNotificationListener : NotificationListenerService() {
             } catch (e: Exception) {
                 CaptureLog.d("requestUnbind failed: ${e.javaClass.simpleName}")
                 false
+            }
+        }
+
+        /**
+         * Active notifications of [packageName] from the bound listener, or null when no listener is bound (access
+         * revoked, capture paused, not yet connected). Called only on demand (reply), never on the capture path; safe
+         * off the main thread (binder call).
+         */
+        fun activeNotificationsOf(packageName: String): List<StatusBarNotification>? {
+            val listener = bound ?: return null
+            return try {
+                listener.activeNotifications?.filter { it != null && it.packageName == packageName }.orEmpty()
+            } catch (e: SecurityException) {
+                null
+            } catch (e: RuntimeException) {
+                null
             }
         }
 

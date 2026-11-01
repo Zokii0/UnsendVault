@@ -173,3 +173,112 @@ branches.
   ticks), and three workloads posted from `com.android.shell`: W1 = 120 non-message notifications (0.5 s apart),
   W2 = 60 chat messages (1 s apart), W3 = 30 bursts of 8 identical reposts.
 - Baseline, official 1.0.15 release (two runs): W1 66 / 66, W2 195 / 87, W3 175 / 148 ticks.
+
+### Release v1.0.27 (published by CI)
+
+| Check | Result |
+|---|---|
+| CI run [40987382178](https://github.com/riyadmondol2006/UnsendVault/actions/runs/40987382178) | Build/test/lint success; sign and publish success. (The previous run, for v1.0.26, signed and verified the APK but the publish step failed because the releases list did not yet show the new draft; the orphaned draft and tag were deleted and the script now retries the lookup.) |
+| Downloaded `UnsendVault-1.0.27.apk` | **3,115,478 bytes**; `sha256sum -c` OK; v2 + v3 signature, 1 signer, same certificate as 1.0.15 (`e443c869…5197`); versionCode 27; permissions INTERNET (update check), USE_BIOMETRIC, USE_FINGERPRINT, WAKE_LOCK, RECEIVE_BOOT_COMPLETED, app-private dynamic receiver; no network-state permissions |
+| In-place upgrade 1.0.15 → 1.0.27 on the Pixel | Installed over the official 1.0.15 (same signing key). Notification Access kept; settings kept (Google Messages exclusion still active); update consent dialog shown; old-archive notice shown; capture works. Cold start 79 ms (warm process). Pass |
+| Automatic update check | Allowed in the consent dialog; 1.0.27 is the latest release, so no popup. Pass |
+| Alarms / wake locks held by the app | 0 / 0 (`dumpsys alarm`, `dumpsys power`) |
+
+### Battery results (release builds)
+
+CPU time of the app process in 100 Hz ticks for the workloads described above (lower is better):
+
+| Workload | 1.0.15 (installed for hours, not force-compiled) | 1.0.27 (just installed, JIT) | 1.0.27 (AOT `-m speed`) |
+|---|---|---|---|
+| W1: 120 non-message notifications | 66, 66 | 37, 48 | 36, 40, 39 |
+| W2: 60 new chat messages | 195, 87 | 231, 172 | 177, 134 |
+| W3: 30 bursts of 8 reposts | 175, 148 | 108, 111 | 92, 84, 71 |
+
+- W1 (notifications from non-messaging apps, the bulk of what a listener sees all day) and W3 (re-posted
+  conversation updates) cost clearly less: roughly **−35 %** and **−30 to −50 %**.
+- W2 (each notification carries a genuinely new message that is stored) is not cheaper and is noisy (1.0.15 itself
+  varied 87–195). Each stored message is now encrypted (AES-256-GCM per field plus HMAC indexes) and there is no
+  full-text index; a `simpleperf` profile showed the time split between the Room transaction, the capture engine,
+  adapter parsing and regex matching.
+- A follow-up experiment that merged the noise regexes into one alternation and added digit-count guards before the
+  sensitive-content regexes was measured A/B against 1.0.27 (both AOT-compiled, measured during the same workloads):
+  no measurable gain (W2 197/152 vs 177/134), so it was **not** shipped.
+- While capture is paused the listener is unbound, so paused capture costs no CPU per notification.
+
+## Round 3 (2026-11-01): issue #3 — reply, saved-message notifications, start tab
+
+Debug build (`com.riyadm.unsendvault.debug`, version 1.0.28) on the same Pixel 6 / Android 17. The chat app was a
+throwaway helper app built only for this test (not part of the repository) that posts MessagingStyle notifications with
+a RemoteInput reply action, logs replies it receives, and re-posts the chat with the reply, like real chat apps do. All
+chat content was synthetic.
+
+### Automated
+
+- Unit tests: 446 run, **445 passed**, 1 skipped (as before), 0 failed (23 new: notification policy and per-chat state, ingest details,
+  reply gateway on Robolectric including the fired RemoteInput intent and chat routing, conversation reply state,
+  start tab, settings persistence and lock rules, conversation deep link, settings cancel hooks).
+- Instrumented tests on the Pixel: **29 passed**, 0 failed.
+- Lint: no new warnings (the 15 existing widget `UnusedAttribute` warnings remain). Release APK size unchanged
+  (3.1 MB). `scripts/verify-release.sh` run on a test-signed copy of the release APK: all permission checks pass
+  (`POST_NOTIFICATIONS` allowed), the only failure was the expected debug signing certificate.
+
+### Manual on the device
+
+| Test | Result |
+|---|---|
+| Chat whose notification is showing with a reply action | Reply box "Reply via …" shown |
+| Send a reply | Helper app received exactly the typed text through its own reply action; its updated notification was archived as "You: …" |
+| Two chats showing, reply in the second | Reply went to the second chat only |
+| Chat's notification dismissed, chat opened | "Replies work only while …'s notification for this chat is still showing." |
+| New message arrives while that chat is open | Reply box reappeared without leaving the screen |
+| Keyboard open | Reply bar sits directly above the keyboard (screenshot checked) |
+| Turn on "Notify when messages are saved" | Android 17 permission prompt shown; after Allow the switch is on |
+| New message, content hidden (default) | Silent (importance low), grouped notification "Saved from Reply Probe / 1 new message saved", lock-screen version generic |
+| Two more messages | Count became 2, then 3 in the same notification |
+| "Show names and text" on | Title = chat name, app as subtext, last lines listed |
+| Tap the notification in the shade | UnsendVault opened that chat; the notification was removed |
+| New message while that chat is open | No notification posted; after leaving the chat the next message posted one again |
+| Turn the option off with two notifications showing | Both removed; later messages posted none |
+| "Open on" = Chats, then force-stop and relaunch | Archive opened on the Chats tab |
+
+Not tested on the device: WhatsApp, WhatsApp Business, Viber and other real chat apps (not installed; their reply
+actions are standard RemoteInput actions but individual apps may behave differently); enabling the app lock (needs the
+owner's credential), which is covered by the settings view-model unit test that checks posted notifications are
+cancelled.
+
+During setup the debug build's catch-up again read real SMS from Google Messages; they were deleted immediately and the
+app was excluded in the debug build.
+
+### Release v1.0.29 (published by CI)
+
+The push of these changes built, signed and published
+[v1.0.29](https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1.0.29). The downloaded APK (3,137,218 bytes)
+matches its published SHA-256, is signed with the same certificate as earlier releases
+(SHA-256 `e443c869…75135197`), reports `com.riyadm.unsendvault` 29 / 1.0.29, and declares exactly `INTERNET`,
+`POST_NOTIFICATIONS`, `USE_BIOMETRIC`, `USE_FINGERPRINT`, `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and the internal
+dynamic-receiver permission. (The debug build tested above reported 1.0.28 because it was built before the commit.)
+
+## Round 4 (2026-11-01): apps in a work profile or other profile
+
+Debug build on the same Pixel 6 / Android 17, with a temporary managed (work) profile created for the test
+(`pm create-user --profileOf 0 --managed`, removed afterwards) and a throwaway chat helper app installed **only** in
+that work profile. Synthetic data only; Google Messages was excluded before Notification Access was granted.
+
+- Unit tests: 451 run, 450 passed, 1 skipped (as before), 0 failed (5 new: profile merging, user-type mapping, exclusion
+  list labels and profiles). Instrumented tests on the Pixel: 29 passed. Lint: no new warnings. Release APK 3.1 MB.
+
+| Test | Result |
+|---|---|
+| Excluded apps with a work profile present | Note "Excluding an app also excludes its copies…" shown; work-only app listed as "Probe Chat · Work profile · package"; Chrome (in both profiles) as "Also in work profile" |
+| Message from the work-profile app | Captured; archive shows "Probe Chat" (not the package name) and the app icon with the work badge, also in the app filter chip |
+| Reply in that chat | Delivered to the app inside the work profile (logged by the app as user 10) |
+| Notification dismissed, "Open Probe Chat" | Opened the app inside the work profile (user 10) |
+
+Android 15+ reports the profile type (work, cloned app, private space); on Android 8–14 such apps are labelled
+"Other profile" because the type isn't available to apps there. Samsung Dual Messenger and Secure Folder were not
+tested (no Samsung device).
+
+Release [v1.0.31](https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1.0.31) (published by CI): the downloaded
+APK (3,141,542 bytes) matches its SHA-256, is signed with the same certificate (`e443c869…75135197`) and declares the same
+permissions as 1.0.29. Installed over 1.0.27 on the Pixel: the existing archive and Notification Access were kept and
+capture stayed active.

@@ -3,6 +3,7 @@ package com.riyadm.unsendvault.data
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.emptyPreferences
+import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.data.settings.DataStoreSettingsRepository
@@ -18,6 +19,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -54,6 +56,9 @@ class SettingsRepositoryTest {
             onboardingCompleted = true,
             captureEnabled = false,
             excludedPackages = setOf("a.b", "c.d"),
+            selectedAppsOnly = true,
+            allowedPackages = setOf("e.f", "g.h"),
+            newApps = setOf("i.j"),
             messagesOnly = false,
             retentionDays = 90,
             filterOtp = false,
@@ -67,6 +72,9 @@ class SettingsRepositoryTest {
             lastExportAt = 123_456L,
             backupReminderDays = 14,
             secureScreen = false,
+            startTab = StartTab.CHATS,
+            savedMessageNotifications = true,
+            notificationShowContent = true,
         )
         val s1 = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val r1 = repo(file, s1)
@@ -87,6 +95,23 @@ class SettingsRepositoryTest {
         val r = repo(File(tmp.root, "c.preferences_pb"))
         r.update { it.copy(widgetShowContent = true, appLockEnabled = true) }
         assertFalse(r.settings.first().widgetShowContent)
+    }
+
+    @Test
+    fun notificationContent_forcedOffWhileAppLocked() = runBlocking {
+        val r = repo(File(tmp.root, "n.preferences_pb"))
+        r.update { it.copy(savedMessageNotifications = true, notificationShowContent = true, appLockEnabled = true) }
+        val s = r.settings.first()
+        assertTrue(s.savedMessageNotifications)
+        assertFalse(s.notificationShowContent)
+    }
+
+    @Test
+    fun newSettings_defaultOff_andRecentTab() = runBlocking {
+        val s = repo(File(tmp.root, "d.preferences_pb")).settings.first()
+        assertEquals(StartTab.RECENT, s.startTab)
+        assertFalse(s.savedMessageNotifications)
+        assertFalse(s.notificationShowContent)
     }
 
     @Test

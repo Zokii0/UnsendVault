@@ -1,5 +1,6 @@
 package com.riyadm.unsendvault.capture.engine
 
+import com.riyadm.unsendvault.core.model.blocksApp
 import com.riyadm.unsendvault.capture.CaptureEngine
 import com.riyadm.unsendvault.capture.CaptureLog
 import com.riyadm.unsendvault.capture.CaptureStats
@@ -10,7 +11,6 @@ import com.riyadm.unsendvault.capture.RemovalEvent
 import com.riyadm.unsendvault.capture.adapter.AdapterRegistry
 import com.riyadm.unsendvault.capture.adapter.AppAdapter
 import com.riyadm.unsendvault.capture.adapter.AppLabelResolver
-import com.riyadm.unsendvault.capture.adapter.KnownApps
 import com.riyadm.unsendvault.capture.filter.SensitiveContentFilter
 import com.riyadm.unsendvault.capture.parser.ParseOutcome
 import com.riyadm.unsendvault.core.model.VaultSettings
@@ -138,7 +138,7 @@ class DefaultCaptureEngine(
 
     private suspend fun handleRemoved(event: RemovalEvent) {
         val settings = settingsProvider()
-        if (!settings.captureEnabled || event.packageName == ownPackage || event.packageName in settings.excludedPackages) return
+        if (!settings.captureEnabled || event.packageName == ownPackage || settings.blocksApp(event.packageName)) return
         synchronized(lock) { lastIngested.remove(event.notificationKey) }
         sink.recordRemoval(event)
     }
@@ -150,8 +150,7 @@ class DefaultCaptureEngine(
     fun process(snapshot: NotificationSnapshot, settings: VaultSettings): ParsedNotification? {
         if (!settings.captureEnabled) return null
         val pkg = snapshot.packageName
-        if (pkg == ownPackage || pkg in settings.excludedPackages) return null
-        if (settings.selectedAppsOnly && pkg !in settings.allowedPackages) return null
+        if (pkg == ownPackage || settings.blocksApp(pkg)) return null
         if (snapshot.isOngoing) return null
         val adapter = registry.adapterFor(pkg)
         if (settings.messagesOnly && !safeIsMessage(adapter, snapshot)) return null

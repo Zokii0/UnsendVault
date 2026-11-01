@@ -1,6 +1,7 @@
 package com.riyadm.unsendvault.di
 
 import android.content.Context
+import com.riyadm.unsendvault.apps.AppDirectory
 import com.riyadm.unsendvault.capture.CaptureEngine
 import com.riyadm.unsendvault.capture.CaptureModule
 import com.riyadm.unsendvault.capture.CapturePauseController
@@ -13,6 +14,10 @@ import com.riyadm.unsendvault.data.RetentionScheduler
 import com.riyadm.unsendvault.data.SettingsRepository
 import com.riyadm.unsendvault.data.VaultRepository
 import com.riyadm.unsendvault.data.WidgetRefresher
+import com.riyadm.unsendvault.notify.SavedMessageNotifier
+import com.riyadm.unsendvault.notify.SavedNotificationPolicy
+import com.riyadm.unsendvault.reply.NotificationReplyGateway
+import com.riyadm.unsendvault.reply.ReplyGateway
 import com.riyadm.unsendvault.update.UpdateController
 import com.riyadm.unsendvault.update.UpdateModule
 import com.riyadm.unsendvault.widget.WidgetModule
@@ -51,7 +56,17 @@ class AppContainer(context: Context) {
     val listenerStatus: ListenerStatus by lazy { CaptureModule.createListenerStatus(this.context) }
     val capture: CaptureRuntime by lazy { CaptureModule.createRuntime(this) }
     val captureEngine: CaptureEngine get() = capture.engine
+    /** App labels, icons and launching across the user's profiles (work profile, cloned apps). */
+    val appDirectory: AppDirectory by lazy { AppDirectory(this.context) }
     val widgetRefresher: WidgetRefresher by lazy { WidgetModule.createRefresher(this.context) }
+
+    /** Opt-in "messages saved" notifications. Built on the first ingest that actually stores something. */
+    val savedMessageNotifier: SavedMessageNotifier by lazy {
+        SavedMessageNotifier(this.context, SavedNotificationPolicy(CaptureModule.placeholders(this.context).selfSender))
+    }
+
+    /** Reply through a chat app's own notification reply action. UI only. */
+    val replyGateway: ReplyGateway by lazy { NotificationReplyGateway(this.context, registry = { capture.registry }) }
 
     /** Opt-in update check. UI only: never touched by capture, widgets or workers. */
     val updateController: UpdateController by lazy { UpdateModule.createController(this.context, appScope) }

@@ -139,4 +139,18 @@ class CapturePreFilterTest {
         }
         assertTrue("matrix should exercise rejects", rejected > 50)
     }
+
+    @Test
+    fun selectedAppsOnlyRejectsPackagesThatAreNotListed() {
+        val only = VaultSettings(selectedAppsOnly = true, allowedPackages = setOf(KnownApps.WHATSAPP))
+        assertEquals(Result.ACCEPT, decide(pkg = KnownApps.WHATSAPP, template = MESSAGING_TEMPLATE, settings = only))
+        assertEquals(Result.EXCLUDED, decide(pkg = "com.example.chat", template = MESSAGING_TEMPLATE, settings = only))
+        // Mode off: the list is ignored (and kept for later).
+        assertEquals(Result.ACCEPT, decide(pkg = "com.example.chat", template = MESSAGING_TEMPLATE, settings = only.copy(selectedAppsOnly = false)))
+        // Excluded still wins over selected.
+        assertEquals(Result.EXCLUDED, decide(pkg = KnownApps.WHATSAPP, template = MESSAGING_TEMPLATE, settings = only.copy(excludedPackages = setOf(KnownApps.WHATSAPP))))
+        // Cold start: unknown settings never cause a settings-based reject.
+        assertEquals(Result.ACCEPT, decide(pkg = "com.example.chat", template = MESSAGING_TEMPLATE, settings = null))
+        assertTrue(Result.EXCLUDED.isSettingsReject)
+    }
 }

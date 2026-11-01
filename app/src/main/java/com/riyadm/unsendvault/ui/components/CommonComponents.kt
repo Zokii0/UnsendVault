@@ -74,7 +74,6 @@ fun AppScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = TopAppBarDefaults.pinnedScrollBehavior(),
     topBar: (@Composable () -> Unit)? = null,
-    bottomBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val insets = LocalScreenInsets.current
@@ -91,7 +90,6 @@ fun AppScaffold(
         },
         snackbarHost = { if (snackbarHostState != null) SnackbarHost(snackbarHostState) },
         floatingActionButton = floatingActionButton,
-        bottomBar = bottomBar,
         contentWindowInsets = insets.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
         content = content,
     )

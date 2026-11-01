@@ -1,10 +1,11 @@
 package com.riyadm.unsendvault.ui.settings
 
+import com.riyadm.unsendvault.capture.adapter.KnownApps
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.riyadm.unsendvault.apps.ProfileKind
 import com.riyadm.unsendvault.core.model.AppSummary
-import com.riyadm.unsendvault.capture.adapter.KnownApps
 import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -28,15 +30,22 @@ data class ExclusionCandidate(
     val label: String,
     val archivedMessages: Int,
     val excluded: Boolean,
+    /** Where the app is installed; exclusion is by package, so it covers every profile. */
+    val profile: ProfileKind = ProfileKind.PERSONAL,
+    val alsoIn: Set<ProfileKind> = emptySet(),
 )
 
-/** One row of the "only selected apps" picker. */
+/** One row of the "only selected apps" list. */
 @Immutable
-data class AllowedCandidate(
+data class SelectionCandidate(
     val packageName: String,
     val label: String,
-    val allowed: Boolean,
-    val knownChatApp: Boolean,
+    val archivedMessages: Int,
+    val selected: Boolean,
+    val profile: ProfileKind = ProfileKind.PERSONAL,
+    val alsoIn: Set<ProfileKind> = emptySet(),
+    /** Sent a chat-style notification while blocked, so it is offered to the user. */
+    val isNew: Boolean = false,
 )
 
 @Immutable
@@ -46,36 +55,41 @@ data class SettingsUiState(
     val launcherApps: List<InstalledApp>? = null,
     val busy: Boolean = false,
 ) {
-    /** Apps on the phone (launcher apps) plus archived ones; known chat apps first, then alphabetical (stable while ticking). */
-    val allowedCandidates: List<AllowedCandidate>
-        get() {
-            val allowed = settings?.allowedPackages.orEmpty()
-            val byPackage = LinkedHashMap<String, AllowedCandidate>()
-            fun add(pkg: String, label: String) {
-                byPackage.putIfAbsent(pkg, AllowedCandidate(pkg, label, pkg in allowed, pkg in KnownApps.chatPackages))
-            }
-            launcherApps.orEmpty().forEach { add(it.packageName, it.label) }
-            archiveApps.forEach { add(it.packageName, it.appLabel) }
-            allowed.forEach { add(it, it) }
-            return byPackage.values.sortedWith(compareByDescending<AllowedCandidate> { it.knownChatApp }.thenBy { it.label.lowercase() })
-        }
-
     /** Archive apps first (they matter most), then other launcher apps; excluded apps always included. */
     val exclusionCandidates: List<ExclusionCandidate>
+        get() = candidates(settings?.excludedPackages.orEmpty())
+
+    /** The same apps for the "only selected apps" list, with the apps that were offered as "new" always included. */
+    val selectionCandidates: List<SelectionCandidate>
         get() {
-            val excluded = settings?.excludedPackages.orEmpty()
-            val byPackage = LinkedHashMap<String, ExclusionCandidate>()
-            archiveApps.sortedBy { it.appLabel.lowercase() }.forEach {
-                byPackage[it.packageName] = ExclusionCandidate(it.packageName, it.appLabel, it.messageCount, it.packageName in excluded)
+            val allowed = settings?.allowedPackages.orEmpty()
+            val newApps = settings?.newApps.orEmpty()
+            return candidates(allowed, newApps).map {
+                SelectionCandidate(it.packageName, it.label, it.archivedMessages, it.excluded, it.profile, it.alsoIn, isNew = it.packageName in newApps && !it.excluded)
             }
-            launcherApps.orEmpty().forEach {
-                byPackage.putIfAbsent(it.packageName, ExclusionCandidate(it.packageName, it.label, 0, it.packageName in excluded))
-            }
-            excluded.filterNot { it in byPackage }.sorted().forEach {
-                byPackage[it] = ExclusionCandidate(it, it, 0, true)
-            }
-            return byPackage.values.toList()
         }
+
+    /** Builds the app list once for both pickers; [flagged] apps get `excluded = true` (excluded or selected). */
+    private fun candidates(flagged: Set<String>, extra: Set<String> = emptySet()): List<ExclusionCandidate> {
+        val byPackage = LinkedHashMap<String, ExclusionCandidate>()
+        val installed = launcherApps.orEmpty().associateBy { it.packageName }
+        archiveApps.sortedBy { it.appLabel.lowercase() }.forEach {
+            val app = installed[it.packageName]
+            // Archives made before other profiles were looked up may hold the package name as the label.
+            val label = if (it.appLabel == it.packageName && app != null) app.label else it.appLabel
+            byPackage[it.packageName] = ExclusionCandidate(
+                it.packageName, label, it.messageCount, it.packageName in flagged,
+                app?.profile ?: ProfileKind.PERSONAL, app?.alsoIn.orEmpty(),
+            )
+        }
+        launcherApps.orEmpty().forEach {
+            byPackage.putIfAbsent(it.packageName, ExclusionCandidate(it.packageName, it.label, 0, it.packageName in flagged, it.profile, it.alsoIn))
+        }
+        (flagged + extra).filterNot { it in byPackage }.sorted().forEach {
+            byPackage[it] = ExclusionCandidate(it, it, 0, it in flagged)
+        }
+        return byPackage.values.toList()
+    }
 }
 
 sealed interface SettingsEvent {
@@ -93,6 +107,8 @@ class SettingsViewModel(
     private val retentionScheduler: RetentionScheduler,
     private val installedApps: InstalledAppsSource,
     private val demoDataInserter: (suspend () -> Int)? = null,
+    /** Removes posted saved-message notifications (feature off, content hidden, app lock on, all data deleted). */
+    private val cancelSavedNotifications: () -> Unit = {},
 ) : ViewModel() {
     private val launcherApps = MutableStateFlow<List<InstalledApp>?>(null)
     private val busy = MutableStateFlow(false)
@@ -112,31 +128,33 @@ class SettingsViewModel(
     fun setCaptureEnabled(value: Boolean) = update { it.copy(captureEnabled = value) }
     fun setMessagesOnly(value: Boolean) = update { it.copy(messagesOnly = value) }
 
-    /**
-     * Turning the mode on for the first time pre-selects the chat apps found on this phone, so it works immediately and
-     * the user only adjusts the list afterwards.
-     */
     fun setSelectedAppsOnly(value: Boolean) {
         viewModelScope.launch {
-            val seed: Set<String> = if (value && settingsRepository.current.allowedPackages.isEmpty()) {
-                val apps = launcherApps.value
-                    ?: runCatching { installedApps.launcherApps() }.getOrDefault(emptyList()).also { launcherApps.value = it }
-                apps.map { it.packageName }.filterTo(LinkedHashSet()) { it in KnownApps.chatPackages }
-            } else {
-                emptySet()
-            }
+            // First time on: start from the chat apps found on the phone and the apps already archived, so nothing that
+            // was being saved stops, and the user only adjusts the list.
+            val seed = if (value && settingsRepository.current.allowedPackages.isEmpty()) initialSelection() else emptySet()
             settingsRepository.update {
                 it.copy(selectedAppsOnly = value, allowedPackages = if (seed.isNotEmpty()) seed else it.allowedPackages)
             }
         }
     }
 
-    fun setAllowed(packageName: String, allowed: Boolean) = update {
-        it.copy(allowedPackages = if (allowed) it.allowedPackages + packageName else it.allowedPackages - packageName)
+    private suspend fun initialSelection(): Set<String> {
+        val installed = launcherApps.value
+            ?: runCatching { installedApps.launcherApps() }.getOrDefault(emptyList()).also { launcherApps.value = it }
+        val archived = vault.observeAppSummaries().first()
+        val chatApps = installed.map { it.packageName }.filter { it in KnownApps.chatPackages }
+        return (chatApps + archived.map { it.packageName }).toSet() - settingsRepository.current.excludedPackages
     }
 
-    fun setNotifyOnSave(value: Boolean) = update { it.copy(notifyOnSave = value) }
-    fun setStartTab(value: StartTab) = update { it.copy(startTab = value) }
+    /** Ticks or unticks an app in the "only selected apps" list. Ticking also clears it from "new" and from excluded. */
+    fun setAllowed(packageName: String, allowed: Boolean) = update {
+        it.copy(
+            allowedPackages = if (allowed) it.allowedPackages + packageName else it.allowedPackages - packageName,
+            newApps = it.newApps - packageName,
+            excludedPackages = if (allowed) it.excludedPackages - packageName else it.excludedPackages,
+        )
+    }
 
     fun loadLauncherApps() {
         if (launcherApps.value != null) return
@@ -190,8 +208,25 @@ class SettingsViewModel(
     fun setWidgetShowContent(value: Boolean) = update { if (it.appLockEnabled) it.copy(widgetShowContent = false) else it.copy(widgetShowContent = value) }
 
     // Security. The UI verifies the device credential before calling setAppLockEnabled(true).
-    fun setAppLockEnabled(value: Boolean) = update {
-        if (value) it.copy(appLockEnabled = true, widgetShowContent = false) else it.copy(appLockEnabled = false)
+    fun setAppLockEnabled(value: Boolean) {
+        update {
+            if (value) it.copy(appLockEnabled = true, widgetShowContent = false, notificationShowContent = false) else it.copy(appLockEnabled = false)
+        }
+        if (value) cancelSavedNotifications() // posted ones may show chat names and text
+    }
+
+    fun setStartTab(tab: StartTab) = update { it.copy(startTab = tab) }
+
+    /** The screen asks for POST_NOTIFICATIONS first on Android 13+; this only stores the choice. */
+    fun setSavedMessageNotifications(value: Boolean) {
+        update { it.copy(savedMessageNotifications = value) }
+        if (!value) cancelSavedNotifications()
+    }
+
+    /** Forced off while the app lock is enabled (same rule as widget content). */
+    fun setNotificationShowContent(value: Boolean) {
+        update { if (it.appLockEnabled) it.copy(notificationShowContent = false) else it.copy(notificationShowContent = value) }
+        if (!value) cancelSavedNotifications()
     }
 
     fun setLockTimeout(seconds: Int) = update { it.copy(lockTimeoutSeconds = seconds) }
@@ -213,6 +248,7 @@ class SettingsViewModel(
             } finally {
                 busy.value = false
             }
+            cancelSavedNotifications()
             _events.send(SettingsEvent.AllDataDeleted)
         }
     }

@@ -1,9 +1,9 @@
 package com.riyadm.unsendvault.capture
 
+import com.riyadm.unsendvault.core.model.blocksApp
 import android.app.Notification
 import com.riyadm.unsendvault.capture.adapter.AdapterRegistry
 import com.riyadm.unsendvault.capture.parser.TextRules
-import com.riyadm.unsendvault.capture.adapter.KnownApps
 import com.riyadm.unsendvault.core.model.VaultSettings
 
 /**
@@ -18,7 +18,7 @@ import com.riyadm.unsendvault.core.model.VaultSettings
  * - own package, ongoing / foreground-service: rejected by the engine;
  * - call / non-message categories and group summaries without any MessagingStyle extras: rejected by every parser
  *   (AdapterRegistry falls back to the generic parser, which rejects them too);
- * - paused, excluded package, messages-only gate: rejected by the engine's settings gates — but only applied when the
+ * - paused, excluded or not-selected package, messages-only gate: rejected by the engine's settings gates — but only applied when the
  *   in-memory settings snapshot is loaded. With `settings == null` (cold start, DataStore not read yet) those checks
  *   are skipped and the background consumer, which waits for the real settings, decides.
  */
@@ -45,8 +45,7 @@ class CapturePreFilter(private val registry: AdapterRegistry, private val ownPac
         if (flags and ONGOING_FLAGS != 0) return Result.ONGOING
         if (settings != null) {
             if (!settings.captureEnabled) return Result.PAUSED
-            if (packageName in settings.excludedPackages) return Result.EXCLUDED
-            if (settings.selectedAppsOnly && packageName !in settings.allowedPackages) return Result.EXCLUDED
+            if (settings.blocksApp(packageName)) return Result.EXCLUDED
         }
         if (TextRules.isCallCategory(category) || TextRules.isNonMessageCategory(category)) return Result.NON_MESSAGE_CATEGORY
         return Result.ACCEPT

@@ -94,6 +94,19 @@ class DefaultCaptureEngineTest {
     }
 
     @Test
+    fun selectedAppsOnlyKeepsOnlyTheListedPackages() = runTest {
+        val e = engine()
+        val telegram = waMessage.copy(packageName = KnownApps.TELEGRAM)
+        val only = VaultSettings(selectedAppsOnly = true, allowedPackages = setOf(KnownApps.WHATSAPP))
+        assertNotNull(e.process(waMessage, only))
+        assertNull(e.process(telegram, only))
+        // The same message is saved when the mode is off, so the drop above is the list and not the content.
+        assertNotNull(e.process(telegram, only.copy(selectedAppsOnly = false)))
+        // Excluded still wins over selected.
+        assertNull(e.process(waMessage, only.copy(excludedPackages = setOf(KnownApps.WHATSAPP))))
+    }
+
+    @Test
     fun messagesOnlyGate() = runTest {
         val e = engine()
         val plain = snapshot(packageName = "com.example.shop", title = "Order update", text = "Your parcel arrives today")

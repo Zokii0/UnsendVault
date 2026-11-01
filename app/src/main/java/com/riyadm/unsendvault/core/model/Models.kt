@@ -135,8 +135,8 @@ data class MessageQuery(
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-/** Tab the archive opens on at launch. Mirrors the home screen tabs. */
-enum class StartTab { RECENT, CONVERSATIONS, APPS }
+/** Which Archive tab the app opens on. */
+enum class StartTab { RECENT, CHATS, APPS }
 
 /** All user preferences, persisted with DataStore. Defaults are the privacy-safe choice. */
 data class VaultSettings(
@@ -145,6 +145,18 @@ data class VaultSettings(
     val captureEnabled: Boolean = true,
     /** Packages the user excluded. Checked before any parsing work. */
     val excludedPackages: Set<String> = emptySet(),
+    /**
+     * Which apps are saved. false (default): any app whose notifications look like chat messages, minus
+     * [excludedPackages]. true: only [allowedPackages]; every other app is dropped before any parsing.
+     */
+    val selectedAppsOnly: Boolean = false,
+    /** The apps saved in "only selected apps" mode. Kept when the mode is switched off again. */
+    val allowedPackages: Set<String> = emptySet(),
+    /**
+     * Apps that sent chat-style notifications while blocked in "only selected apps" mode, offered to the user as "New"
+     * (package names only, newest last, capped).
+     */
+    val newApps: Set<String> = emptySet(),
     /**
      * When true (default) only notifications that look like messages are archived: MessagingStyle,
      * CATEGORY_MESSAGE, or a package with a dedicated adapter. When false, any app's text notification may be stored.
@@ -173,15 +185,20 @@ data class VaultSettings(
     val backupReminderDays: Int = 0,
     /** Hide app content in Recents and block screenshots (FLAG_SECURE). */
     val secureScreen: Boolean = true,
-    /** Tab shown when the app opens. */
+    /** Archive tab shown when the app starts. */
     val startTab: StartTab = StartTab.RECENT,
     /**
-     * When true only packages in [allowedPackages] are captured; every other package is dropped before any parsing.
-     * Stricter than [messagesOnly], which is a heuristic on notification contents.
+     * Post UnsendVault's own silent notification when new messages are saved (one per chat, tap opens the chat). Off by
+     * default; needs POST_NOTIFICATIONS on Android 13+.
      */
-    val selectedAppsOnly: Boolean = false,
-    /** Apps the user ticked for [selectedAppsOnly]. Pre-filled with the chat apps found on the phone on first use. */
-    val allowedPackages: Set<String> = emptySet(),
-    /** Post a silent notification when a new message is saved; tapping it opens that conversation. */
-    val notifyOnSave: Boolean = false,
+    val savedMessageNotifications: Boolean = false,
+    /**
+     * Show chat names and message text in those notifications. Off by default (they then only name the app and count);
+     * always forced off while the app lock is enabled.
+     */
+    val notificationShowContent: Boolean = false,
 )
+
+/** True when notifications of [packageName] must be dropped: excluded, or not selected in "only selected apps" mode. */
+fun VaultSettings.blocksApp(packageName: String): Boolean =
+    packageName in excludedPackages || (selectedAppsOnly && packageName !in allowedPackages)

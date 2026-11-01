@@ -156,13 +156,6 @@
 
     <!-- Conversation -->
     <string name="conversation_empty_title">No messages left</string>
-    <string name="notify_channel_name">Saved messages</string>
-    <string name="notify_channel_description">Silent notification that opens a saved conversation in UnsendVault.</string>
-    <string name="notify_public_title">New message saved</string>
-    <string name="reply_hint">Reply</string>
-    <string name="reply_send">Send reply</string>
-    <string name="reply_unavailable">Reply becomes available after a new message arrives in this chat.</string>
-    <string name="reply_failed">Could not send. The reply option from the chat app has expired. Wait for a new message.</string>
     <string name="conversation_empty_body">All messages of this conversation were deleted from your archive.</string>
     <plurals name="selected_count">
         <item quantity="one">%d selected</item>
@@ -253,18 +246,12 @@
     <string name="settings_capture_enabled_off">Paused. New notifications are ignored.</string>
     <string name="settings_messages_only">Messages only</string>
     <string name="settings_messages_only_summary">Only save notifications that look like chat messages. Turn off to also keep text from other apps\' notifications.</string>
-    <string name="settings_selected_apps_only">Only selected apps</string>
-    <string name="settings_selected_apps_only_summary">Only save notifications from the apps you tick. Chat apps found on this phone are pre-selected the first time you turn this on. Everything else is ignored.</string>
-    <string name="settings_allowed_apps">Selected apps</string>
-    <string name="settings_allowed_count">%1$d selected</string>
-    <string name="allowed_apps_explainer">Only ticked apps are saved. Chat apps installed on this phone are listed first.</string>
-    <string name="allowed_apps_chat_app">Chat app</string>
-    <string name="settings_notify_on_save">Open-in-app notification</string>
-    <string name="settings_notify_on_save_summary">Post a silent notification when a message is saved. Tap it to read the conversation here. It shows only the chat name, never the message text.</string>
-    <string name="settings_start_tab">Start tab</string>
-    <string name="start_tab_recent">Recent</string>
-    <string name="start_tab_chats">Chats</string>
-    <string name="start_tab_apps">Apps</string>
+    <string name="settings_apps_to_save">Apps to save</string>
+    <string name="apps_mode_all">All chat apps</string>
+    <string name="apps_mode_selected">Only selected apps</string>
+    <string name="settings_selected_apps">Selected apps</string>
+    <string name="settings_selected_count">%1$d selected</string>
+    <string name="settings_selected_count_new">%1$d selected · %2$d new</string>
     <string name="settings_excluded_apps">Excluded apps</string>
     <string name="settings_excluded_none">No apps excluded</string>
     <plurals name="settings_excluded_count">
@@ -330,6 +317,10 @@
 
     <!-- Exclusions -->
     <string name="exclusions_explainer">Notifications from excluded apps are dropped before they are read. Apps you\'ve received messages from are listed first.</string>
+    <string name="selected_apps_explainer">Only ticked apps are saved; notifications from every other app are dropped before they are read. An app that sends a chat-style notification but is not ticked shows up first as New, so you can add it.</string>
+    <string name="selected_apps_new">New · sent a chat-style notification, not saved</string>
+    <string name="selected_apps_state_selected">Saved</string>
+    <string name="selected_apps_state_not_selected">Not saved</string>
     <string name="exclusions_filter_hint">Find an app</string>
     <string name="exclusions_state_excluded">Excluded</string>
     <string name="exclusions_state_captured">Captured</string>

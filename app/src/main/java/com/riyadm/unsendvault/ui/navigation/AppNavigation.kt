@@ -1,6 +1,5 @@
 package com.riyadm.unsendvault.ui.navigation
 
-import com.riyadm.unsendvault.capture.ReplyRegistry
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
@@ -66,8 +65,8 @@ import com.riyadm.unsendvault.ui.search.SearchRoute
 import com.riyadm.unsendvault.ui.search.SearchViewModel
 import com.riyadm.unsendvault.ui.settings.AboutRoute
 import com.riyadm.unsendvault.ui.settings.BackupViewModel
-import com.riyadm.unsendvault.ui.settings.AllowedAppsRoute
 import com.riyadm.unsendvault.ui.settings.ExclusionsRoute
+import com.riyadm.unsendvault.ui.settings.SelectedAppsRoute
 import com.riyadm.unsendvault.ui.settings.PackageManagerAppsSource
 import com.riyadm.unsendvault.ui.settings.ReliabilityRoute
 import com.riyadm.unsendvault.ui.settings.SettingsRoute
@@ -91,7 +90,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class ConversationDest(val id: Long)
 @Serializable data class MessageDest(val id: Long)
 @Serializable data object ExclusionsDest
-@Serializable data object AllowedAppsDest
+@Serializable data object SelectedAppsDest
 @Serializable data object ReliabilityDest
 @Serializable data object AboutDest
 
@@ -197,12 +196,22 @@ private fun NavHostController.navigateTopLevel(item: TopLevel) {
     }
 }
 
+private fun conversationViewModel(id: Long, c: AppContainer) =
+    ConversationViewModel(id, c.vaultRepository, replyGateway = c.replyGateway)
+
+/** Saved-message notifications: clear the chat's notification while it is open, and don't post new ones for it. */
+private fun AppContainer.onConversationVisible(id: Long, visible: Boolean) {
+    if (!settingsRepository.current.savedMessageNotifications) return
+    if (visible) savedMessageNotifier.onConversationVisible(id) else savedMessageNotifier.onConversationHidden(id)
+}
+
 private fun settingsViewModelFactory(c: AppContainer) = SettingsViewModel(
     settingsRepository = c.settingsRepository,
     vault = c.vaultRepository,
     retentionScheduler = c.retentionScheduler,
-    installedApps = PackageManagerAppsSource(c.context),
+    installedApps = PackageManagerAppsSource(c.context, c.appDirectory),
     demoDataInserter = if (BuildConfig.DEBUG) ({ DemoData.insert(c.vaultRepository) }) else null,
+    cancelSavedNotifications = { c.savedMessageNotifier.cancelAll() },
 )
 
 @Composable
@@ -227,10 +236,12 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
                 conversationPane = { id, onClose ->
                     CompositionLocalProvider(LocalScreenInsets provides noInsets) {
                         ConversationRoute(
-                            viewModel = containerViewModel(key = "conversation-$id") { ConversationViewModel(id, it.vaultRepository) },
+                            viewModel = containerViewModel(key = "conversation-$id") { conversationViewModel(id, it) },
                             onBack = null,
                             onClosed = onClose,
                             onOpenMessage = { navController.navigate(MessageDest(it)) },
+                            onVisibleChanged = { visible -> container.onConversationVisible(id, visible) },
+                            appDirectory = container.appDirectory,
                         )
                     }
                 },
@@ -248,7 +259,7 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
                 backupViewModel = containerViewModel { BackupViewModel(it.backupManager, it.settingsRepository) },
                 accessSettingsIntent = { container.listenerStatus.accessSettingsIntent() },
                 onOpenExclusions = { navController.navigate(ExclusionsDest) },
-                onOpenAllowedApps = { navController.navigate(AllowedAppsDest) },
+                onOpenSelectedApps = { navController.navigate(SelectedAppsDest) },
                 onOpenReliability = { navController.navigate(ReliabilityDest) },
                 onOpenAbout = { navController.navigate(AboutDest) },
                 showDeveloperOptions = BuildConfig.DEBUG,
@@ -258,19 +269,12 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
             val back = rememberBack(navController)
             val id = backStackEntry.toRoute<ConversationDest>().id
             ConversationRoute(
-                viewModel = containerViewModel {
-                    ConversationViewModel(
-                        id,
-                        it.vaultRepository,
-                        replyAvailability = ReplyRegistry.available,
-                        replySender = { conversation, text ->
-                            ReplyRegistry.send(it.context, conversation.packageName, conversation.conversationKey, text)
-                        },
-                    )
-                },
+                viewModel = containerViewModel { conversationViewModel(id, it) },
                 onBack = { back() },
                 onClosed = { back() },
                 onOpenMessage = { navController.navigate(MessageDest(it)) },
+                onVisibleChanged = { visible -> container.onConversationVisible(id, visible) },
+                appDirectory = container.appDirectory,
             )
         }
         composable<MessageDest> { backStackEntry ->
@@ -282,9 +286,9 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
             val back = rememberBack(navController)
             ExclusionsRoute(containerViewModel { settingsViewModelFactory(it) }) { back() }
         }
-        composable<AllowedAppsDest> {
+        composable<SelectedAppsDest> {
             val back = rememberBack(navController)
-            AllowedAppsRoute(containerViewModel { settingsViewModelFactory(it) }) { back() }
+            SelectedAppsRoute(containerViewModel { settingsViewModelFactory(it) }) { back() }
         }
         composable<ReliabilityDest> {
             val back = rememberBack(navController)
