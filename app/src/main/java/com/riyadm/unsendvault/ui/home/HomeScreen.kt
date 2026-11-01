@@ -155,13 +155,15 @@ fun HomeScreen(
                 }
             }
             val header: LazyListScope.() -> Unit = {
-                item(key = "status", contentType = "status") {
-                    CaptureStatusCard(
-                        state.captureStatus, state.stats, onGrantAccess, onResume, onReconnect, onReliabilityHelp,
-                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
+                if (showStatusCard(state.captureStatus)) {
+                    item(key = "status", contentType = "status") {
+                        CaptureStatusCard(
+                            state.captureStatus, onGrantAccess, onResume, onReconnect, onReliabilityHelp,
+                            Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
                 }
-                if (state.tab != HomeTab.APPS && state.apps.size > 1) {
+                if (showAppFilterChips(state.tab, state.apps.size, state.selectedPackages)) {
                     item(key = "chips", contentType = "chips") {
                         AppFilterChips(state.apps, state.selectedPackages, onTogglePackage, onClearPackages)
                     }
@@ -366,3 +368,13 @@ private fun HomeEmpty(state: HomeUiState) {
         scrollable = false,
     )
 }
+
+/** The status card is only needed while capture does not work; a healthy state shows nothing. */
+internal fun showStatusCard(status: CaptureStatus): Boolean = status != CaptureStatus.ACTIVE
+
+/**
+ * App filter chips: from two apps on, and also while a filter is active, so a filter picked in the Apps tab can always be
+ * seen and cleared.
+ */
+internal fun showAppFilterChips(tab: HomeTab, appCount: Int, selectedPackages: Set<String>): Boolean =
+    tab != HomeTab.APPS && (appCount > 1 || selectedPackages.isNotEmpty())
