@@ -55,7 +55,7 @@ class NewAppRecorder(private val scope: CoroutineScope, private val settings: ()
         scope.launch {
             try {
                 settings().update { s ->
-                    if (s.appsToSave != AppsToSave.SELECTED_APPS || packageName in s.selectedPackages ||
+                    if (!s.suggestNewApps || s.appsToSave != AppsToSave.SELECTED_APPS || packageName in s.selectedPackages ||
                         packageName in s.excludedPackages || packageName in s.newApps
                     ) {
                         s

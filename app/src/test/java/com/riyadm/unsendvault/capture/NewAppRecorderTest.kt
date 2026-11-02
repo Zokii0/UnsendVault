@@ -34,4 +34,12 @@ class NewAppRecorderTest {
         advanceUntilIdle()
         assertEquals(emptyList<String>(), allMode.current.newApps)
     }
+
+    @Test
+    fun recordsNothingWhenSuggestionsAreOff() = runTest {
+        val off = InMemorySettingsRepository(VaultSettings(appsToSave = AppsToSave.SELECTED_APPS, suggestNewApps = false))
+        NewAppRecorder(this) { off }.record("com.sms")
+        advanceUntilIdle()
+        assertEquals(emptyList<String>(), off.current.newApps)
+    }
 }
