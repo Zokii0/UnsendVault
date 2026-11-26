@@ -582,7 +582,12 @@ class RoomVaultRepository(
 
     override suspend fun removeMedia(messageId: Long) {
         val store = media ?: return
-        withContext(Dispatchers.IO) { store.delete(listOf(messageId)) }
+        withContext(Dispatchers.IO) { store.markRemoved(messageId) }
+    }
+
+    override suspend fun isMediaRemoved(messageId: Long): Boolean {
+        val store = media ?: return false
+        return withContext(Dispatchers.IO) { store.isRemoved(messageId) }
     }
 
     /** Deletes picture files whose message is gone (after deletes, retention and REPLACE imports). Never throws. */

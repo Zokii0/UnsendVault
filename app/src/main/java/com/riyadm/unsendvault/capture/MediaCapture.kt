@@ -2,6 +2,7 @@ package com.riyadm.unsendvault.capture
 
 import android.content.ContentResolver
 import android.net.Uri
+import androidx.core.net.toUri
 import com.riyadm.unsendvault.data.VaultRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,8 +29,9 @@ class MediaCapture(
             if (!isSupported(ref.mimeType)) continue
             try {
                 val repo = vault()
-                if (repo.hasMedia(ref.messageId)) continue
-                val bytes = withContext(Dispatchers.IO) { read(Uri.parse(ref.uri)) } ?: continue
+                // Already kept, or the user removed it: chat apps re-post the same messages with every new one.
+                if (repo.hasMedia(ref.messageId) || repo.isMediaRemoved(ref.messageId)) continue
+                val bytes = withContext(Dispatchers.IO) { read(ref.uri.toUri()) } ?: continue
                 if (repo.saveMedia(ref.messageId, ref.mimeType, bytes)) {
                     CaptureLog.d("picture saved (${bytes.size / 1024} KiB)")
                 }

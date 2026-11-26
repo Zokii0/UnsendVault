@@ -46,6 +46,24 @@ class MediaVaultTest {
     }
 
     @Test
+    fun markRemoved_deletesFiles_andIsForgottenWithTheMessage() = runBlocking {
+        val dir = tmp.newFolder("media")
+        val vault = MediaVault(dir)
+        vault.write(5, "image/png", data, cipher)
+        vault.writeLink(5, MediaLink("content://media/external/video/media/1", "video/mp4"), cipher)
+        vault.markRemoved(5)
+        assertFalse(vault.has(5))
+        assertFalse(vault.hasLink(5))
+        assertTrue(vault.isRemoved(5))
+        // A file chosen again later is still kept.
+        assertTrue(vault.write(5, "image/png", data, cipher))
+        assertTrue(vault.has(5))
+        vault.prune { emptyList() }
+        assertFalse(vault.isRemoved(5))
+        assertTrue(dir.listFiles()!!.isEmpty())
+    }
+
+    @Test
     fun prune_keepsOnlyExistingMessages_andDropsTempFiles() = runBlocking {
         val dir = tmp.newFolder("media")
         val vault = MediaVault(dir)

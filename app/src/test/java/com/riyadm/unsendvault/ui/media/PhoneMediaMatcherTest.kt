@@ -46,6 +46,20 @@ class PhoneMediaMatcherTest {
     }
 
     @Test
+    fun anotherAppsFolder_isNeverOurs_evenWhenWeOwnTheFile() {
+        val files = listOf(
+            file("ownBusinessFolder", "Pictures/WhatsApp Business/", 1_000, owner = wa),
+            file("ownViberFolder", "Pictures/Viber/", 1_000, owner = wa),
+            file("own", "Pictures/WhatsApp/", 2_000, owner = wa),
+        )
+        assertEquals(listOf("own"), pick(files))
+        // Both Telegram builds use the "Telegram" folder: it stays theirs.
+        val telegram = listOf(file("tg", "Pictures/Telegram/", 1_000))
+        assertEquals(listOf("tg"), pick(telegram, pkg = "org.telegram.messenger.web", label = "Telegram"))
+        assertEquals(listOf("tg"), pick(telegram, pkg = "org.telegram.messenger", label = "Telegram"))
+    }
+
+    @Test
     fun excludesSentAndStatuses() {
         val files = listOf(
             file("sent", "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Images/Sent/", 1_000),

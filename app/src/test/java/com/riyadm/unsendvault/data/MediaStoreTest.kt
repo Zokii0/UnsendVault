@@ -119,8 +119,11 @@ class MediaStoreTest : RoomTestBase() {
         assertTrue(mediaRepo.saveMediaLink(id, link))
         assertEquals(link, mediaRepo.loadMediaLink(id))
 
+        assertFalse(mediaRepo.isMediaRemoved(id))
         mediaRepo.removeMedia(id)
         assertNull(mediaRepo.loadMediaLink(id))
+        // Remembered, so a still-showing notification does not bring the picture back.
+        assertTrue(mediaRepo.isMediaRemoved(id))
 
         mediaRepo.saveMediaLink(id, link)
         mediaRepo.deleteMessages(listOf(id))

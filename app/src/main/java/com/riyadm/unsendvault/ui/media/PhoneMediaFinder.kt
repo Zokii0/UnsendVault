@@ -17,6 +17,7 @@ import android.util.Size
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import com.riyadm.unsendvault.ui.components.PictureDecoder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -145,7 +146,7 @@ class PhoneMediaFinder(context: Context) {
     /** True while the file is still on the phone and readable. */
     suspend fun exists(uri: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            resolver.query(Uri.parse(uri), arrayOf(BaseColumns._ID), null, null, null)?.use { it.count > 0 } ?: false
+            resolver.query(uri.toUri(), arrayOf(BaseColumns._ID), null, null, null)?.use { it.count > 0 } ?: false
         } catch (e: SecurityException) {
             false
         } catch (e: IllegalArgumentException) {
@@ -158,7 +159,7 @@ class PhoneMediaFinder(context: Context) {
     /** Small preview of a picture or video (album art for audio, when there is any). */
     suspend fun thumbnail(uri: String, kind: PhoneMediaKind): ImageBitmap? = withContext(Dispatchers.IO) {
         try {
-            val parsed = Uri.parse(uri)
+            val parsed = uri.toUri()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 resolver.loadThumbnail(parsed, Size(THUMB_PX, THUMB_PX), null).asImageBitmap()
             } else {
@@ -186,7 +187,7 @@ class PhoneMediaFinder(context: Context) {
     /** Bytes of [uri], or null when unreadable or larger than [maxBytes]. */
     suspend fun read(uri: String, maxBytes: Int): ByteArray? = withContext(Dispatchers.IO) {
         try {
-            readBytes(Uri.parse(uri), maxBytes)
+            readBytes(uri.toUri(), maxBytes)
         } catch (e: SecurityException) {
             null
         } catch (e: IOException) {
@@ -214,7 +215,7 @@ class PhoneMediaFinder(context: Context) {
     fun open(context: Context, uri: String, mimeType: String): Boolean = try {
         context.startActivity(
             Intent(Intent.ACTION_VIEW)
-                .setDataAndType(Uri.parse(uri), mimeType)
+                .setDataAndType(uri.toUri(), mimeType)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
         )
         true

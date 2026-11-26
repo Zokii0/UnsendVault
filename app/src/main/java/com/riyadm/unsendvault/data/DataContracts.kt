@@ -58,8 +58,14 @@ interface VaultRepository {
     /** The phone file linked to [messageId], or null. */
     suspend fun loadMediaLink(messageId: Long): MediaLink? = null
 
-    /** Removes the saved picture and the linked file reference of [messageId] (the phone file itself is untouched). */
+    /**
+     * Removes the saved picture and the linked file reference of [messageId] (the phone file itself is untouched) and
+     * remembers it, so the picture is not copied again from the notification ([isMediaRemoved]).
+     */
     suspend fun removeMedia(messageId: Long) {}
+
+    /** True when the user removed the picture/link of [messageId]; automatic capture then skips it. */
+    suspend fun isMediaRemoved(messageId: Long): Boolean = false
 }
 
 interface SettingsRepository {

@@ -68,17 +68,19 @@ object PhoneMediaMatcher {
 
     fun isFromApp(file: PhoneMediaFile, packageName: String, appLabel: String): Boolean {
         val segments = segments(file.path)
-        // Another chat app's folder (com.whatsapp.w4b when looking for com.whatsapp, ...) is never ours.
-        val otherPackages = KNOWN_FOLDERS.keys - packageName
-        if (segments.any { it in otherPackages }) return false
-        if (file.ownerPackage != null) {
-            if (file.ownerPackage == packageName) return true
-            if (file.ownerPackage in otherPackages) return false
-        }
         val names = buildSet {
             add(packageName.lowercase())
             KNOWN_FOLDERS[packageName]?.let { addAll(it) }
             appLabel.trim().lowercase().takeIf { it.length >= MIN_LABEL }?.let { add(it) }
+        }
+        // Another chat app's folder (com.whatsapp.w4b or "WhatsApp Business" when looking for com.whatsapp, ...) is
+        // never ours, whoever owns the file. Names this app shares (both Telegram builds use "Telegram") still count.
+        val otherPackages = KNOWN_FOLDERS.keys - packageName
+        val otherFolders = otherPackages.flatMap { KNOWN_FOLDERS.getValue(it) }.toSet() - names
+        if (segments.any { it in otherPackages || it in otherFolders }) return false
+        if (file.ownerPackage != null) {
+            if (file.ownerPackage == packageName) return true
+            if (file.ownerPackage in otherPackages) return false
         }
         // Whole folder names only: "WhatsApp" matches WhatsApp's root folder but not "WhatsApp Business".
         return segments.any { it in names }

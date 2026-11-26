@@ -14,6 +14,9 @@ import java.nio.charset.StandardCharsets.UTF_8
  * - `<dir>/<messageId>.link`: a reference (MediaStore URI + MIME type) to a video/audio file on the phone that the user
  *   linked with "Find on phone". The file itself is never copied.
  *
+ * plus `<dir>/<messageId>.removed`, an empty marker left when the user removes a message's picture or link, so the
+ * picture is not copied again from the notification (chat apps re-post the same messages with every new one).
+ *
  * Kept outside the database so pictures never bloat the WAL, the search scans or the schema (no migration). Each file
  * is one [FieldCipher] blob ([Field.MEDIA_CONTENT] / [Field.MEDIA_LINK], owner [FieldCipher.forMedia]) under the same
  * vault key as the database, so it is as protected as the message text and unreadable once the vault key is gone. The
@@ -28,6 +31,23 @@ class MediaVault(private val dir: File) {
     fun has(messageId: Long): Boolean = file(messageId, PICTURE).isFile
 
     fun hasLink(messageId: Long): Boolean = file(messageId, LINK).isFile
+
+    /** True when the user removed this message's picture or link (see [markRemoved]). */
+    fun isRemoved(messageId: Long): Boolean = file(messageId, REMOVED).isFile
+
+    /**
+     * Deletes the picture and link of [messageId] and remembers that the user removed them, so automatic capture does
+     * not bring the picture back while the source notification is still showing. Choosing a file again still works.
+     */
+    fun markRemoved(messageId: Long) {
+        delete(listOf(messageId))
+        try {
+            if (dir.isDirectory || dir.mkdirs()) file(messageId, REMOVED).createNewFile()
+        } catch (e: IOException) {
+            // Best effort: without the marker the picture may only be copied again from a still-showing notification.
+        } catch (e: SecurityException) {
+        }
+    }
 
     /** Ids that have a stored picture, from file names only (no decryption). */
     fun storedIds(): List<Long> = idsWith(PICTURE)
@@ -78,18 +98,19 @@ class MediaVault(private val dir: File) {
         return MediaLink(uri = plain.substring(split + 1), mimeType = plain.substring(0, split))
     }
 
-    /** Deletes the picture and the link of each id. */
+    /** Deletes the picture, the link and the removed marker of each id. */
     fun delete(ids: Collection<Long>) {
         ids.forEach {
             file(it, PICTURE).delete()
             file(it, LINK).delete()
+            file(it, REMOVED).delete()
         }
     }
 
     /** Deletes every file whose message no longer exists. [existing] returns which of the given ids still exist. */
     suspend fun prune(existing: suspend (List<Long>) -> Collection<Long>) {
         dir.listFiles()?.filter { it.name.endsWith(TMP) }?.forEach { it.delete() }
-        val stored = (idsWith(PICTURE) + idsWith(LINK)).distinct()
+        val stored = (idsWith(PICTURE) + idsWith(LINK) + idsWith(REMOVED)).distinct()
         if (stored.isEmpty()) return
         stored.chunked(CHUNK).forEach { chunk ->
             val keep = existing(chunk).toSet()
@@ -144,6 +165,7 @@ class MediaVault(private val dir: File) {
         private const val PICTURE = ".media"
         private const val LINK = ".link"
         private const val TMP = ".tmp"
+        private const val REMOVED = ".removed"
         private const val MAX_MIME = 100
         private const val MAX_URI = 2_000
         private const val CHUNK = 500

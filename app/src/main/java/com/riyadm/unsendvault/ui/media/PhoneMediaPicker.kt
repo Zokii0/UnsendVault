@@ -12,7 +12,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -102,7 +103,15 @@ fun PhoneMediaPickerDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Box(Modifier.fillMaxWidth().height(320.dp), contentAlignment = Alignment.Center) {
+                // Up to 320 dp, less when the dialog is short (landscape), so the checkbox below always stays visible.
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .heightIn(min = 96.dp, max = 320.dp)
+                        .fillMaxHeight(),
+                    contentAlignment = Alignment.Center,
+                ) {
                     when {
                         loading -> CircularProgressIndicator()
                         files.isEmpty() -> Text(
